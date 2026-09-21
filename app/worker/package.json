@@ -10,7 +10,7 @@
   "license": "See License in ../../LICENSE",
 "scripts": {
     "start": "node mandelbrok8s-worker.js",
-    "dev": "nodemon mandelbrok8s-worker.js",
+    "dev": "clear && nodemon mandelbrok8s-worker.js",
     "format": "prettier --write '**/*.{js,json,scss,css,ts}'"
   },
   "dependencies": {

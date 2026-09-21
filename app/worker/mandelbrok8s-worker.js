@@ -20,15 +20,15 @@ let globalConfig = null;
 
 
 // Load environment variables and configuration
-console.log('[MAIN   ] Loading environment variables and configuration...');
+console.log('[MAIN    ] Loading environment variables and configuration...');
 dotenv.config();
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mandelbrok8s';
 const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
 const PYTHON_SCRIPT_PATH = process.env.PYTHON_SCRIPT_PATH || path.join(__dirname, '../renderer/mandelbrok8s.py');
-console.log('[MAIN   ] Configuration loaded:');
-console.log(`[MAIN   ]   MONGO_URI: ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
-console.log(`[MAIN   ]   PYTHON_BIN: ${PYTHON_BIN}`);
-console.log(`[MAIN   ]   PYTHON_SCRIPT_PATH: ${PYTHON_SCRIPT_PATH}`);
+console.log('[MAIN    ]     Configuration loaded:');
+console.log(`[MAIN    ]       MONGO_URI: ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
+console.log(`[MAIN    ]       PYTHON_BIN: ${PYTHON_BIN}`);
+console.log(`[MAIN    ]       PYTHON_SCRIPT_PATH: ${PYTHON_SCRIPT_PATH}`);
 
 
 
@@ -38,7 +38,7 @@ console.log(`[MAIN   ]   PYTHON_SCRIPT_PATH: ${PYTHON_SCRIPT_PATH}`);
 
 
 // Minimal HTTP server for K8s Liveness/Readiness probes
-console.log('[MAIN   ] Creating HTTP server...');
+console.log('[MAIN    ] Creating HTTP server...');
 const server = http.createServer((req, res) => {
   if (req.url === '/healthz' || req.url === '/readyz') {
     if (isConnected) {
@@ -53,6 +53,7 @@ const server = http.createServer((req, res) => {
     res.end();
   }
 });
+console.log('[MAIN    ]     HTTP server created.');
 
 
 
@@ -64,17 +65,13 @@ const server = http.createServer((req, res) => {
 // Fetch or refresh global configuration document from MongoDB
 async function refreshGlobalConfig() {
   try {
-    console.log('[CONFIG  ] Refreshing global configuration from MongoDB...');
     const doc = await configCollection.findOne({ _id: 'global_config' });
     if (doc) {
       globalConfig = doc;
-      console.log('[CONFIG  ] Global configuration refreshed successfully.');
       return true;
-    } else {
-      console.error('[CONFIG  ] Global configuration document not found.');
     }
   } catch (err) {
-    console.error('[CONFIG  ] Error reading global_config:', err.message);
+    console.error('[CONFIG  ]     Error reading global_config:', err.message);
   }
   return false;
 }
@@ -116,10 +113,10 @@ function runRenderer(task) {
     console.log(`[RENDERER] Running Python renderer for task ID: ${task._id} with args: ${args.join(' ')}`);
     execFile(PYTHON_BIN, args, (error, stdout, stderr) => {
       if (error) {
-        console.error(`[RENDERER] Python execution failed for task ID: ${task._id}: ${stderr || error.message}`);
-        return reject(new Error(`Python execution failed: ${stderr || error.message}`));
+        console.error(`[RENDERER]     Python execution failed for task ID: ${task._id}: ${stderr || error.message}`);
+        return reject(new Error(`[RENDERER]     Python execution failed: ${stderr || error.message}`));
       }
-      console.log(`[RENDERER] Python execution succeeded for task ID: ${task._id}`);
+      console.log(`[RENDERER]     Python execution succeeded for task ID: ${task._id}`);
       resolve({ tempOutputPath, stdout });
     });
   });
@@ -139,12 +136,11 @@ function saveToGridFS(filename, filePath) {
     const uploadStream = gridFSBucket.openUploadStream(filename, {
       contentType: 'image/png'
     });
-
     fs.createReadStream(filePath)
       .pipe(uploadStream)
       .on('error', reject)
       .on('finish', () => {
-        console.log(`[WORKER  ] File saved to GridFS with ID: ${uploadStream.id}`);
+        console.log(`[WORKER  ]     File saved to GridFS with ID: ${uploadStream.id}`);
         resolve(uploadStream.id);
       });
   });
@@ -182,7 +178,7 @@ async function claimAndProcessTask() {
       console.log('[CLAIMER ] No pending tasks found.');
       return;
     }
-    console.log(`[CLAIMER ] Task acquired. ID: ${task._id}`);
+    console.log(`[CLAIMER ]     Task acquired. ID: ${task._id}`);
 
 
     // Track image rendering execution timeframe
@@ -197,14 +193,14 @@ async function claimAndProcessTask() {
     console.log(`[CLAIMER ] Executing renderer for task ID: ${task._id}`);
     const { tempOutputPath, stdout } = await runRenderer(task);
     tempFilePath = tempOutputPath;
-    console.log(`[CLAIMER ] Renderer execution completed for task ID: ${task._id}`);
+    console.log(`[CLAIMER ]     Renderer execution completed for task ID: ${task._id}`);
 
 
     // Save rendered image artifact to GridFS
     console.log(`[CLAIMER ] Saving rendered image (${tempFilePath}) to GridFS for task ID: ${task._id}`);
     const gridFsFileId = await saveToGridFS(`fractal_${task._id}.png`, tempFilePath);
     const imageFinishedAt = new Date();
-    console.log(`[CLAIMER ] Rendered image saved to GridFS with ID: ${gridFsFileId} for task ID: ${task._id}`);
+    console.log(`[CLAIMER ]     Rendered image saved to GridFS with ID: ${gridFsFileId} for task ID: ${task._id}`);
 
     // Parse timing metrics and update task completion details in database
     console.log(`[CLAIMER ] Updating task completion details for task ID: ${task._id}`);
@@ -225,10 +221,10 @@ async function claimAndProcessTask() {
         }
       }
     );
-    console.log(`[CLAIMER ] Task ${task._id} COMPLETED successfully. GridFS ID: ${gridFsFileId}`);
+    console.log(`[CLAIMER ]     Task ${task._id} COMPLETED successfully. GridFS ID: ${gridFsFileId}`);
   } catch (err) {
     // Mark task as failed in database if an exception occurs
-    console.error(`[CLAIMER ] Error processing task ID: ${task ? task._id : 'unknown'}:`, err.message);
+    console.error(`[CLAIMER ]     Error processing task ID: ${task ? task._id : 'unknown'}:`, err.message);
     if (task) {
       const errorTime = new Date();
       await tasksCollection.updateOne(
@@ -240,7 +236,7 @@ async function claimAndProcessTask() {
             updatedAt: errorTime
           }
         }
-      ).catch(dbErr => console.error('[CLAIMER ] Failed to update task status to failed:', dbErr));
+      ).catch(dbErr => console.error('[CLAIMER ]     Failed to update task status to failed:', dbErr));
     }
   } finally {
     // Guaranteed cleanup of temporary local files
@@ -248,7 +244,7 @@ async function claimAndProcessTask() {
       try {
         fs.unlinkSync(tempFilePath);
       } catch (cleanupErr) {
-        console.error(`[CLAIMER ] Failed to delete temp file ${tempFilePath}:`, cleanupErr.message);
+        console.error(`[CLAIMER ]     Failed to delete temp file ${tempFilePath}:`, cleanupErr.message);
       }
     }
   }
@@ -300,11 +296,11 @@ async function worker() {
     console.log('[WORKER  ] Fetching global_config from database...');
     let configLoaded = await refreshGlobalConfig();
     while (!configLoaded) {
-      console.warn('[WORKER  ] global_config not found. Waiting for orchestrator initialization (retrying in 3s)...');
+      console.warn('[WORKER  ]     global_config not found. Waiting for orchestrator initialization (retrying in 3s)...');
       await new Promise(resolve => setTimeout(resolve, 3000));
       configLoaded = await refreshGlobalConfig();
     }
-    console.log('[WORKER  ] global_config loaded successfully:', JSON.stringify(globalConfig.worker));
+    console.log('[WORKER  ]     global_config loaded successfully:', JSON.stringify(globalConfig.worker));
 
     // Start HTTP healthcheck probe server once DB and configuration are confirmed
     const port = globalConfig.worker.port || 8080;
@@ -312,7 +308,7 @@ async function worker() {
     console.log(`[WORKER  ]   /healthz endpoint available`);
     console.log(`[WORKER  ]   /readyz endpoint available`);
     server.listen(port, () => {
-      console.log(`[WORKER  ] Healthcheck probe server listening on port ${port}`);
+      console.log(`[WORKER  ]     Healthcheck probe server listening on port ${port}`);
     });
 
     // Start continuous adaptive polling loop
@@ -320,7 +316,7 @@ async function worker() {
     scheduleNextPoll();
 
   } catch (err) {
-    console.error('[WORKER  ] Fatal startup error:', err);
+    console.error('[WORKER  ]     Fatal startup error:', err);
     process.exit(1);
   }
 }
@@ -333,5 +329,5 @@ async function worker() {
 
 
 // Start the worker process
-console.log('[MAIN   ] Starting worker...');
+console.log('[MAIN    ] Starting worker...');
 worker();
