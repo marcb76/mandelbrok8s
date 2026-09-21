@@ -23,14 +23,10 @@ let globalConfig = null;
 console.log('[MAIN   ] Loading environment variables and configuration...');
 dotenv.config();
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mandelbrok8s';
-const PORT = process.env.PORT || 8080;
-const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '3000', 10);
 const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
 const PYTHON_SCRIPT_PATH = process.env.PYTHON_SCRIPT_PATH || path.join(__dirname, '../renderer/mandelbrok8s.py');
 console.log('[MAIN   ] Configuration loaded:');
-console.log(`[MAIN   ]   MONGO_URI: ${MONGO_URI}`);
-console.log(`[MAIN   ]   PORT: ${PORT}`);
-console.log(`[MAIN   ]   POLL_INTERVAL_MS: ${POLL_INTERVAL_MS}`);
+console.log(`[MAIN   ]   MONGO_URI: ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
 console.log(`[MAIN   ]   PYTHON_BIN: ${PYTHON_BIN}`);
 console.log(`[MAIN   ]   PYTHON_SCRIPT_PATH: ${PYTHON_SCRIPT_PATH}`);
 
@@ -311,11 +307,12 @@ async function worker() {
     console.log('[WORKER  ] global_config loaded successfully:', JSON.stringify(globalConfig.worker));
 
     // Start HTTP healthcheck probe server once DB and configuration are confirmed
-    console.log(`[WORKER  ] Starting HTTP healthcheck server on port ${PORT}...`);
+    const port = globalConfig.worker.port || 8080;
+    console.log(`[WORKER  ] Starting HTTP healthcheck server on port ${port}...`);
     console.log(`[WORKER  ]   /healthz endpoint available`);
     console.log(`[WORKER  ]   /readyz endpoint available`);
-    server.listen(PORT, () => {
-      console.log(`[WORKER  ] Healthcheck probe server listening on port ${PORT}`);
+    server.listen(port, () => {
+      console.log(`[WORKER  ] Healthcheck probe server listening on port ${port}`);
     });
 
     // Start continuous adaptive polling loop
