@@ -89,6 +89,7 @@ The Orchestrator maintains and updates a single configuration document (`_id: "g
 {
   "_id": "global_config",
   "worker": {
+    "port": 8080,
     "pollIntervalMs": 1000,
     "taskTimeoutMs": 30000,
     "tasksConcurrency": 1
