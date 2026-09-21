@@ -1,0 +1,54 @@
+###############################################################################
+# Git ignore file for the mandelbrok8s project
+###############################################################################
+
+# Dependencies & Build Outputs
+node_modules/
+build/
+dist/
+
+# Python & Numba cache / Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Log & Temporary files
+*.log
+*.tmp
+
+# Environment variable files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.test.local
+.env.development.local
+.env.production.local
+.env.test.env
+.env.development.env
+.env.production.env
+
+# Kubernetes & Security (Secrets & SSL/TLS)
+k8s/secrets-mongo.yaml
+k8s/secrets-tls.yaml
+*.pem
+*.key
+*.crt
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Editor-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# Others
+*.pdf

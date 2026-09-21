@@ -226,28 +226,52 @@ cd mandelbrok8s
 ### 2. Configure Kubernetes Secrets
 Create the secrets file in your local environment (ensure it is not committed to Git):
 ```yaml
-# k8s/secrets.yaml
+# k8s/secrets-mongo.yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: mandelbrok8s-secrets
+  name: mandelbrok8s-mongo-secrets
   namespace: mandelbrok8s
 type: Opaque
 stringData:
   MONGO_URI: "mongodb+srv://<user>:<password>@cluster.mongodb.net/?retryWrites=true&w=majority"
 ```
-Apply the secret and namespaces:
+```yaml
+# k8s/secrets-tls.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mandelbrok8s-tls-secrets
+  namespace: mandelbrok8s
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIFLTCCAxWgAwIBAgIU... (Certificate)
+    -----END CERTIFICATE-----
+    -----BEGIN CERTIFICATE-----
+    MIIEADCCAuigAwIBAgIB... (Intermediate certificate / CA Chain)
+    -----END CERTIFICATE-----
+  tls.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...
+    -----END PRIVATE KEY-----
+```
+Apply namespace and secrets:
 ```bash
 kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/secrets.yaml
+kubectl apply -f k8s/secrets-mongo.yaml
+kubectl apply -f k8s/secrets-tls.yaml
 ```
 
 ### 3. Build and Deploy Base Infrastructure
-Deploy the Orchestrator, Worker, and HPA manifests:
+Deploy Worker, HPA manifests and Orchestrator (pod, service & ingress):
 ```bash
-kubectl apply -f k8s/orchestrator-deploy.yaml
 kubectl apply -f k8s/worker-deploy.yaml
 kubectl apply -f k8s/worker-hpa.yaml
+kubectl apply -f k8s/orchestrator-deploy.yaml
+kubectl apply -f k8s/orchestrator-service.yaml
+kubectl apply -f k8s/orchestrator-ingress.yaml
 ```
 
 ### 4. Verify Deployment Status
@@ -304,19 +328,23 @@ While Worker pods operate as asynchronous background consumers, each replica exe
 mandelbrok8s/
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml          # GitHub Actions pipeline (CI/CD)
+│       └── deploy.yml             # GitHub Actions pipeline (CI/CD)
+├── .gitignore
 ├── app/
-│   ├── orchestrator/           # Node.js API to inject tasks
-│   ├── worker/                 # Node.js worker (Atomic polling + GridFS)
-│   └── renderer/               # Python CLI script with Numba JIT for fractal computation
+│   ├── orchestrator/              # Node.js API to inject tasks
+│   ├── worker/                    # Node.js worker (Atomic polling + GridFS)
+│   └── renderer/                  # Python CLI script with Numba JIT for fractal computation
 ├── docker/
 │   ├── Dockerfile.orchestrator
-│   └── Dockerfile.worker       # Multi-runtime image (Node.js + Python/Numba)
+│   └── Dockerfile.worker          # Multi-runtime image (Node.js + Python/Numba)
 ├── k8s/
 │   ├── namespace.yaml
-│   ├── secrets.yaml            # MongoDB Atlas connection credentials
+│   ├── secrets-mongo.yaml         # MongoDB Atlas connection credentials
+│   ├── secrets-tls.yaml           # TLS: chain & key
 │   ├── orchestrator-deploy.yaml
+│   ├── orchestrator-service.yaml
+│   ├── orchestrator-ingress.yaml
 │   ├── worker-deploy.yaml
-│   └── worker-hpa.yaml         # Horizontal Pod Autoscaler configuration
+│   └── worker-hpa.yaml            # Horizontal Pod Autoscaler configuration
 └── README.md
 ```
