@@ -230,7 +230,7 @@ Create the secrets file in your local environment (ensure it is not committed to
 apiVersion: v1
 kind: Secret
 metadata:
-  name: mandelbrok8s-mongo-secrets
+  name: mongo-secrets
   namespace: mandelbrok8s
 type: Opaque
 stringData:
@@ -241,7 +241,7 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: mandelbrok8s-tls-secrets
+  name: tls-secrets
   namespace: mandelbrok8s
 type: kubernetes.io/tls
 stringData:

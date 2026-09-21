@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mandelbrok8s
+  labels:
+    name: mandelbrok8s
+    app.kubernetes.io/part-of: mandelbrok8s
