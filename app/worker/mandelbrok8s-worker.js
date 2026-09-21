@@ -1,6 +1,6 @@
 // mandelbrok8s-worker.js - Main entry point for the Mandelbrok8s worker application
 
-// Import modules
+// Import required modules
 const dotenv = require("dotenv");
 const http = require('http');
 const path = require('path');
@@ -11,8 +11,10 @@ const { MongoClient, GridFSBucket } = require('mongodb');
 
 
 
-let db, tasksCollection, gridFSBucket;
+// Main variables for database connection and global configuration
+let db, tasksCollection, configCollection, gridFSBucket;
 let isConnected = false;
+let globalConfig = null;
 
 
 
@@ -23,12 +25,18 @@ dotenv.config();
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mandelbrok8s';
 const PORT = process.env.PORT || 8080;
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '3000', 10);
+const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
 const PYTHON_SCRIPT_PATH = process.env.PYTHON_SCRIPT_PATH || path.join(__dirname, '../renderer/mandelbrok8s.py');
 console.log('[MAIN   ] Configuration loaded:');
 console.log(`[MAIN   ]   MONGO_URI: ${MONGO_URI}`);
 console.log(`[MAIN   ]   PORT: ${PORT}`);
 console.log(`[MAIN   ]   POLL_INTERVAL_MS: ${POLL_INTERVAL_MS}`);
+console.log(`[MAIN   ]   PYTHON_BIN: ${PYTHON_BIN}`);
 console.log(`[MAIN   ]   PYTHON_SCRIPT_PATH: ${PYTHON_SCRIPT_PATH}`);
+
+
+
+
 
 
 
@@ -53,27 +61,69 @@ const server = http.createServer((req, res) => {
 
 
 
-// Python CLI renderer execution wrapper
+
+
+
+
+// Fetch or refresh global configuration document from MongoDB
+async function refreshGlobalConfig() {
+  try {
+    console.log('[CONFIG  ] Refreshing global configuration from MongoDB...');
+    const doc = await configCollection.findOne({ _id: 'global_config' });
+    if (doc) {
+      globalConfig = doc;
+      console.log('[CONFIG  ] Global configuration refreshed successfully.');
+      return true;
+    } else {
+      console.error('[CONFIG  ] Global configuration document not found.');
+    }
+  } catch (err) {
+    console.error('[CONFIG  ] Error reading global_config:', err.message);
+  }
+  return false;
+}
+
+
+
+
+
+
+
+
+// Python CLI renderer execution wrapper reading parameters from task.renderConfig
 function runRenderer(task) {
   return new Promise((resolve, reject) => {
     const tempOutputPath = path.join(__dirname, `temp_${task._id}.png`);
+
+    // Extract rendering parameters directly from task.renderConfig
+    const renderConfig = task.renderConfig || {};
+    const resolution = renderConfig.resolution || {};
+    const center = renderConfig.center || [-0.5, 0.0];
+
+    const width = resolution.width || 1920;
+    const height = resolution.height || 1080;
+    const iterations = renderConfig.iterations || 1000;
+    const zoom = renderConfig.zoom || 1.0;
+    const centerX = center[0] !== undefined ? center[0] : -0.5;
+    const centerY = center[1] !== undefined ? center[1] : 0.0;
+
     const args = [
       PYTHON_SCRIPT_PATH,
-      '--width', task.width || 1920,
-      '--height', task.height || 1080,
-      '--iterations', task.iterations || 1000,
-      '--center-x', task.center_x !== undefined ? task.center_x : -0.5,
-      '--center-y', task.center_y !== undefined ? task.center_y : 0.0,
-      '--zoom', task.zoom || 1.0,
+      '--width', width,
+      '--height', height,
+      '--iterations', iterations,
+      '--center-x', centerX,
+      '--center-y', centerY,
+      '--zoom', zoom,
       '--output', tempOutputPath
     ];
     console.log(`[RENDERER] Running Python renderer for task ID: ${task._id} with args: ${args.join(' ')}`);
-    execFile('python3', args, (error, stdout, stderr) => {
+    execFile(PYTHON_BIN, args, (error, stdout, stderr) => {
       if (error) {
-        console.error(`[RENDERER] Python renderer execution failed for task ID: ${task._id}: ${stderr || error.message}`);
-        return reject(new Error(`Python renderer execution failed: ${stderr || error.message}`));
+        console.error(`[RENDERER] Python execution failed for task ID: ${task._id}: ${stderr || error.message}`);
+        return reject(new Error(`Python execution failed: ${stderr || error.message}`));
       }
-      console.log(`[RENDERER] Python renderer execution succeeded for task ID: ${task._id}`);
+      console.log(`[RENDERER] Python execution succeeded for task ID: ${task._id}`);
       resolve({ tempOutputPath, stdout });
     });
   });
@@ -82,18 +132,23 @@ function runRenderer(task) {
 
 
 
+
+
+
+
 // Upload PNG stream to MongoDB GridFS
 function saveToGridFS(filename, filePath) {
-  console.log(`[WORKER] Saving file to GridFS: ${filename}`);
+  console.log(`[WORKER  ] Saving file to GridFS: ${filename}`);
   return new Promise((resolve, reject) => {
     const uploadStream = gridFSBucket.openUploadStream(filename, {
       contentType: 'image/png'
     });
+
     fs.createReadStream(filePath)
       .pipe(uploadStream)
       .on('error', reject)
       .on('finish', () => {
-        console.log(`[WORKER] File saved to GridFS with ID: ${uploadStream.id}`);
+        console.log(`[WORKER  ] File saved to GridFS with ID: ${uploadStream.id}`);
         resolve(uploadStream.id);
       });
   });
@@ -102,31 +157,45 @@ function saveToGridFS(filename, filePath) {
 
 
 
-// Task processor
+
+
+
+
+// Main task claiming and processing routine
 async function claimAndProcessTask() {
   let task = null;
   let tempFilePath = null;
 
   try {
-    // Atomic lock: find a pending task and mark it as PROCESSING
+    // Atomic lock: find a pending task and mark it as processing
     console.log('[CLAIMER ] Attempting to acquire next pending task...');
+    const claimTime = new Date();
     task = await tasksCollection.findOneAndUpdate(
-      { status: 'PENDING' },
+      { status: 'pending' },
       { 
         $set: { 
-          status: 'PROCESSING', 
-          startedAt: new Date(),
-          workerId: process.env.HOSTNAME || 'local-worker'
+          status: 'processing', 
+          claimedAt: claimTime,
+          claimedBy: process.env.HOSTNAME || 'local-worker',
+          updatedAt: claimTime
         } 
       },
       { returnDocument: 'after' }
     );
-
     if (!task) {
       console.log('[CLAIMER ] No pending tasks found.');
       return;
     }
     console.log(`[CLAIMER ] Task acquired. ID: ${task._id}`);
+
+
+    // Track image rendering execution timeframe
+    const imageStartedAt = new Date();
+    await tasksCollection.updateOne(
+      { _id: task._id },
+      { $set: { imageStartedAt: imageStartedAt, updatedAt: imageStartedAt } }
+    );
+
 
     // Execute Numba Python rendering engine
     console.log(`[CLAIMER ] Executing renderer for task ID: ${task._id}`);
@@ -134,43 +203,48 @@ async function claimAndProcessTask() {
     tempFilePath = tempOutputPath;
     console.log(`[CLAIMER ] Renderer execution completed for task ID: ${task._id}`);
 
-    // Save image artifact to GridFS
+
+    // Save rendered image artifact to GridFS
     console.log(`[CLAIMER ] Saving rendered image (${tempFilePath}) to GridFS for task ID: ${task._id}`);
     const gridFsFileId = await saveToGridFS(`fractal_${task._id}.png`, tempFilePath);
+    const imageFinishedAt = new Date();
     console.log(`[CLAIMER ] Rendered image saved to GridFS with ID: ${gridFsFileId} for task ID: ${task._id}`);
 
-    // Update task completion details in database
-    console.log(`[CLAIMER ] Updating task completion details in database for task ID: ${task._id}`);
+    // Parse timing metrics and update task completion details in database
+    console.log(`[CLAIMER ] Updating task completion details for task ID: ${task._id}`);
     const match = stdout.match(/render_time_sec=([\d.]+)/);
     const renderTimeSec = match ? parseFloat(match[1]) : null;
     await tasksCollection.updateOne(
       { _id: task._id },
       {
         $set: {
-          status: 'COMPLETED',
-          completedAt: new Date(),
-          gridFsFileId: gridFsFileId,
-          renderTimeSec: renderTimeSec
+          status: 'completed',
+          progress: 100,
+          imageFinishedAt: imageFinishedAt,
+          image: {
+            $ref: 'fs.files',$id: gridFsFileId
+          },
+          renderTimeSec: renderTimeSec,
+          updatedAt: imageFinishedAt
         }
       }
     );
     console.log(`[CLAIMER ] Task ${task._id} COMPLETED successfully. GridFS ID: ${gridFsFileId}`);
-
   } catch (err) {
+    // Mark task as failed in database if an exception occurs
     console.error(`[CLAIMER ] Error processing task ID: ${task ? task._id : 'unknown'}:`, err.message);
-
-    // Mark task as FAILED in database if an error occurs
     if (task) {
+      const errorTime = new Date();
       await tasksCollection.updateOne(
         { _id: task._id },
         {
           $set: {
-            status: 'FAILED',
-            failedAt: new Date(),
-            error: err.message
+            status: 'failed',
+            error: err.message,
+            updatedAt: errorTime
           }
         }
-      ).catch(dbErr => console.error('[CLAIMER ] Failed to update task status to FAILED:', dbErr));
+      ).catch(dbErr => console.error('[CLAIMER ] Failed to update task status to failed:', dbErr));
     }
   } finally {
     // Guaranteed cleanup of temporary local files
@@ -187,33 +261,69 @@ async function claimAndProcessTask() {
 
 
 
-// Database connection and execution loop
+
+
+
+
+// Recursive function supporting dynamic polling interval updates from global_config
+async function scheduleNextPoll() {
+  // Claim and process the next available task
+  await claimAndProcessTask();
+
+  // Refresh global configuration to capture dynamic pollIntervalMs updates
+  await refreshGlobalConfig();
+
+  const nextInterval = globalConfig?.worker?.pollIntervalMs || POLL_INTERVAL_MS;
+  setTimeout(scheduleNextPoll, nextInterval);
+}
+
+
+
+
+
+
+
+
+// Database connection and initialization workflow... main worker
 async function worker() {
   try {
-    console.log('[WORKER ] Connecting to MongoDB Atlas...');
+    console.log('[WORKER  ] Connecting to MongoDB Atlas...');
     const client = new MongoClient(MONGO_URI);
     await client.connect();
+
     db = client.db();
     tasksCollection = db.collection('tasks');
-    gridFSBucket = new GridFSBucket(db, { bucketName: 'fractals' });
+    configCollection = db.collection('config');
+    gridFSBucket = new GridFSBucket(db, { bucketName: 'fs' });
     isConnected = true;
-    console.log('[WORKER] Successfully connected to MongoDB Atlas');
-    console.log(`[WORKER] Using database: ${db.databaseName}`);
 
-    // Start HTTP healthcheck server
-    console.log(`[WORKER] Starting HTTP healthcheck server on port ${PORT}...`);
-    console.log(`[WORKER]   /healthz endpoint available`);
-    console.log(`[WORKER]   /readyz endpoint available`);
+    console.log('[WORKER  ] Successfully connected to MongoDB Atlas');
+    console.log(`[WORKER  ] Using database: ${db.databaseName}`);
+
+    // Wait until orchestrator initializes the global_config document
+    console.log('[WORKER  ] Fetching global_config from database...');
+    let configLoaded = await refreshGlobalConfig();
+    while (!configLoaded) {
+      console.warn('[WORKER  ] global_config not found. Waiting for orchestrator initialization (retrying in 3s)...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      configLoaded = await refreshGlobalConfig();
+    }
+    console.log('[WORKER  ] global_config loaded successfully:', JSON.stringify(globalConfig.worker));
+
+    // Start HTTP healthcheck probe server once DB and configuration are confirmed
+    console.log(`[WORKER  ] Starting HTTP healthcheck server on port ${PORT}...`);
+    console.log(`[WORKER  ]   /healthz endpoint available`);
+    console.log(`[WORKER  ]   /readyz endpoint available`);
     server.listen(PORT, () => {
-      console.log(`[WORKER] Healthcheck probe server listening on port ${PORT}`);
+      console.log(`[WORKER  ] Healthcheck probe server listening on port ${PORT}`);
     });
 
-    // Continuous polling loop
-    console.log(`[WORKER] Poll interval set to: ${POLL_INTERVAL_MS} ms`);
-    console.log('[WORKER] Starting task processing loop...');
-    setInterval(claimAndProcessTask, POLL_INTERVAL_MS);
+    // Start continuous adaptive polling loop
+    console.log('[WORKER  ] Starting task processing loop...');
+    scheduleNextPoll();
+
   } catch (err) {
-    console.error('[WORKER] Fatal startup error:', err);
+    console.error('[WORKER  ] Fatal startup error:', err);
     process.exit(1);
   }
 }
@@ -224,7 +334,7 @@ async function worker() {
 
 
 
-////////////////////////////////////////////////////////////////////////////////
+
 // Start the worker process
 console.log('[MAIN   ] Starting worker...');
 worker();
