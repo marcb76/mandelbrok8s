@@ -129,7 +129,6 @@ Each fractal rendering request creates a stateful job document within the `tasks
 {
   "_id": "651a2f3e8f1b2c3d4e5f6a7b",
   "status": "completed",
-  "progress": 100,
   "renderConfig": {
     "iterations": 1000,
     "resolution": {
@@ -157,7 +156,6 @@ Each fractal rendering request creates a stateful job document within the `tasks
 #### Schema Field Breakdown:
 * **`_id`**: Unique MongoDB BSON ObjectId for the task.
 * **`status`**: Lifecycle state (`pending` | `processing` | `completed` | `failed`).
-* **`progress`**: Percentage of rendering completion (`0` to `100`).
 * **`renderConfig`**: Effective render parameters (iterations, resolution, zoom, center) inherited from `global_config` defaults or optional API overrides.
 * **`claimedAt` / `claimedBy`**: Timestamp and Kubernetes Pod identifier claiming the task atomically.
 * **`imageStartedAt` / `imageFinishedAt`**: Exact execution duration metrics for calculation and rendering.
