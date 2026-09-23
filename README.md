@@ -81,9 +81,9 @@ The hybrid selection of **Node.js (Orchestrator/Worker Manager)** and **Python +
   }
   ```
 
-### 2. Dynamic Operational Configuration Collection (`system_config`)
+### 2. Dynamic Operational Configuration Collection (`global_config`)
 
-The Orchestrator maintains and updates a single configuration document (`_id: "global_config"`) inside the `system_config` collection in MongoDB Atlas. Worker pods fetch and refresh this document on every polling loop, enabling real-time operational adjustments.
+The Orchestrator maintains and updates a single configuration document (`_id: "global_config"`) inside the `global_config` collection in MongoDB Atlas. Worker pods fetch and refresh this document on every polling loop, enabling real-time operational adjustments.
 
 ```json
 {
@@ -158,7 +158,7 @@ Each fractal rendering request creates a stateful job document within the `tasks
 * **`_id`**: Unique MongoDB BSON ObjectId for the task.
 * **`status`**: Lifecycle state (`pending` | `processing` | `completed` | `failed`).
 * **`progress`**: Percentage of rendering completion (`0` to `100`).
-* **`renderConfig`**: Effective render parameters (iterations, resolution, zoom, center) inherited from `system_config` defaults or optional API overrides.
+* **`renderConfig`**: Effective render parameters (iterations, resolution, zoom, center) inherited from `global_config` defaults or optional API overrides.
 * **`claimedAt` / `claimedBy`**: Timestamp and Kubernetes Pod identifier claiming the task atomically.
 * **`imageStartedAt` / `imageFinishedAt`**: Exact execution duration metrics for calculation and rendering.
 * **`image`**: Object pointer referring to the generated image stored in **MongoDB GridFS** (`fs.files`).
@@ -292,8 +292,9 @@ The Orchestrator exposes a RESTful API (`/api/v1`) providing complete operationa
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| **GET** | `/api/v1/system_config` | Fetches the active operational defaults and runtime configuration from MongoDB. |
-| **PUT** | `/api/v1/system_config` | Dynamically updates operational parameters (polling intervals, timeouts, HPA thresholds, fractal defaults). |
+| **GET** | `/api/v1/global_config` | Fetches the active operational defaults and runtime configuration from MongoDB. |
+| **PUT** | `/api/v1/global_config` | Dynamically updates operational parameters (polling intervals, timeouts, HPA thresholds, fractal defaults). |
+| **PATCH** | `/api/v1/global_config` | Partially updates specific operational parameters without requiring the full configuration payload. |
 | **GET** | `/api/v1/tasks` | Lists rendering task documents with optional pagination and status filtering (`?status=pending`). |
 | **POST** | `/api/v1/tasks` | Injects new rendering tasks. Accepts `{ "count": N }` to generate multi-task load bursts for scaling demos. |
 | **GET** | `/api/v1/tasks/{id}` | Retrieves execution state, claim metadata, progress, and performance metrics for a specific task. |
