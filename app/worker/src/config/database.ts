@@ -17,7 +17,7 @@ let isConnected = false;
 
 
 // Connect to the MongoDB database and initialize collections and GridFS bucket
-export async function connectWorkerDB(mongoUri: string): Promise<void> {
+export async function connectDB(mongoUri: string): Promise<void> {
   const client = new MongoClient(mongoUri);
   await client.connect();
   db = client.db();

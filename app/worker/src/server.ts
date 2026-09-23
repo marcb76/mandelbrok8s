@@ -4,8 +4,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
-import { connectWorkerDB } from './config/database';
+import { connectDB } from './config/database';
 import healthRoutes from './routes/health.routes';
+import metricsRoutes from './routes/metrics.routes';
 import { refreshGlobalConfig, getGlobalConfig, claimAndProcessTask } from './services/worker.service';
 
 
@@ -46,8 +47,12 @@ console.log('[MAIN    ] Initializing Express application...');
 const app = express();
 app.use(express.json());
 app.use('/', healthRoutes);
+app.use('/', metricsRoutes);
 console.log('[MAIN    ] Express application initialized and routes registered: ');
 healthRoutes.stack.forEach((route: any) => {
+  console.log(`[MAIN    ]   ${route.route?.path}`);
+});
+metricsRoutes.stack.forEach((route: any) => {
   console.log(`[MAIN    ]   ${route.route?.path}`);
 });
 console.log('[MAIN    ]');
@@ -73,7 +78,7 @@ async function startWorker() {
   try {
     // Connect to the MongoDB database and initialize global configuration
     console.log('[WORKER  ] Connecting to MongoDB Atlas...');
-    await connectWorkerDB(MONGO_URI);
+    await connectDB(MONGO_URI);
     console.log('[WORKER  ] Successfully connected to MongoDB Atlas');
 
     // Fetch and refresh the global configuration from the database
