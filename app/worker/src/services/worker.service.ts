@@ -170,7 +170,6 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
       {
         $set: {
           status: 'completed',
-          progress: 100,
           imageFinishedAt: imageFinishedAt,
           image: {
             $ref: 'fs.files',$id: gridFsFileId

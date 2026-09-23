@@ -21,9 +21,9 @@ export async function connectDB(mongoUri: string): Promise<void> {
   const client = new MongoClient(mongoUri);
   await client.connect();
   db = client.db();
-  tasksCollection = db.collection('tasks');
-  configCollection = db.collection('config');
-  gridFSBucket = new GridFSBucket(db, { bucketName: 'fs' });
+  tasksCollection = db.collection(`tasks`);
+  configCollection = db.collection(`config`);
+  gridFSBucket = new GridFSBucket(db, { bucketName: `fs` });
   isConnected = true;
 }
 

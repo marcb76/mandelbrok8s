@@ -11,9 +11,11 @@ import { checkDBConnection } from '../config/database';
 export class MetricsController {
   // GET /metrics - Exposes API execution stats, memory usage, and component status
   public static getMetrics(req: Request, res: Response): void {
+    // Collect memory usage and uptime metrics
     const memoryUsage = process.memoryUsage();
     const uptimeSec = process.uptime();
 
+    // Respond with the collected metrics
     res.status(200).json({
       status: 'ok',
       service: 'mandelbrok8s-worker',
