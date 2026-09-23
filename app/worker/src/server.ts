@@ -1,0 +1,114 @@
+// /src/server.ts - Main entry point for the Mandelbrok8s worker application
+
+// Import required modules
+import express from 'express';
+import dotenv from 'dotenv';
+import path from 'path';
+import { connectWorkerDB } from './config/database';
+import healthRoutes from './routes/health.routes';
+import { refreshGlobalConfig, getGlobalConfig, claimAndProcessTask } from './services/worker.service';
+
+
+
+
+// Welcome banner
+console.log('[MAIN    ]');
+console.log('[MAIN    ]');
+console.log('[MAIN    ] ====================================================');
+console.log('[MAIN    ] Welcome to Mandelbrok8s Worker Application');
+console.log('[MAIN    ]   A cloud-native architecture blueprint for event-driven distributed processing, dynamic auto-scaling (HPA) in');
+console.log('[MAIN    ]   Kubernetes, zero-downtime updates, and hybrid storage with MongoDB Atlas GridFS.');
+console.log('[MAIN    ] Author: Marc Bonet Bretto');
+console.log('[MAIN    ] Copyright: 2026 Marc Bonet Bretto. All rights reserved.');
+console.log('[MAIN    ] ====================================================');
+console.log('[MAIN    ]');
+console.log('[MAIN    ]');
+
+
+// Load environment variables and configuration
+console.log('[MAIN    ] Loading environment variables and configuration...');
+dotenv.config();
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mandelbrok8s';
+const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
+const PYTHON_SCRIPT_PATH = process.env.PYTHON_SCRIPT_PATH || path.join(__dirname, '../../renderer/mandelbrok8s.py');
+console.log('[MAIN    ]   Configuration loaded:');
+console.log(`[MAIN    ]     MONGO_URI: ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
+console.log(`[MAIN    ]     PYTHON_BIN: ${PYTHON_BIN}`);
+console.log(`[MAIN    ]     PYTHON_SCRIPT_PATH: ${PYTHON_SCRIPT_PATH}`);
+console.log('[MAIN    ]');
+console.log('[MAIN    ]');
+
+
+
+
+// Initialize Express application and register routes
+console.log('[MAIN    ] Initializing Express application...');
+const app = express();
+app.use(express.json());
+app.use('/', healthRoutes);
+console.log('[MAIN    ] Express application initialized and routes registered: ');
+healthRoutes.stack.forEach((route: any) => {
+  console.log(`[MAIN    ]   ${route.route?.path}`);
+});
+console.log('[MAIN    ]');
+console.log('[MAIN    ]');
+
+
+
+
+// Schedule the next task polling based on the configured interval
+async function scheduleNextPoll() {
+  await claimAndProcessTask(PYTHON_BIN, PYTHON_SCRIPT_PATH);
+  await refreshGlobalConfig();
+  const globalConfig = getGlobalConfig();
+  const nextInterval = globalConfig?.worker?.pollIntervalMs;
+  setTimeout(scheduleNextPoll, nextInterval);
+}
+
+
+
+
+// Worker startup and initialization logic
+async function startWorker() {
+  try {
+    // Connect to the MongoDB database and initialize global configuration
+    console.log('[WORKER  ] Connecting to MongoDB Atlas...');
+    await connectWorkerDB(MONGO_URI);
+    console.log('[WORKER  ] Successfully connected to MongoDB Atlas');
+
+    // Fetch and refresh the global configuration from the database
+    console.log('[WORKER  ] Fetching global_config from database...');
+    let configLoaded = await refreshGlobalConfig();
+    while (!configLoaded) {
+      console.warn('[WORKER  ]   global_config not found. Waiting for orchestrator initialization (retrying in 3s)...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      configLoaded = await refreshGlobalConfig();
+    }
+    
+    // Retrieve the global configuration after it has been successfully loaded
+    const globalConfig = getGlobalConfig();
+    console.log('[WORKER  ]   global_config loaded successfully:', JSON.stringify(globalConfig.worker));
+
+    // Start the HTTP healthcheck server based on the configured port
+    const port = globalConfig.worker.port || 8080;
+    console.log(`[WORKER  ] Starting HTTP healthcheck server on port ${port}...`);
+    app.listen(port, () => {
+      console.log(`[WORKER  ] Healthcheck probe server listening on port ${port}`);
+    });
+
+    // Start the task processing loop based on the configured polling interval
+    console.log(`[WORKER  ] Starting task processing loop (polling every ${globalConfig?.worker?.pollIntervalMs} ms)...`);
+    scheduleNextPoll();
+  } catch (err) {
+    // Handle any errors that occur during worker startup
+    console.error('[WORKER  ]   Fatal startup error:', err);
+    process.exit(1);
+  }
+}
+
+
+
+
+// Start the worker application
+console.log('[MAIN    ] Starting worker TypeScript application...');
+startWorker();
