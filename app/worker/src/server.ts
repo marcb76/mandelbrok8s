@@ -29,9 +29,13 @@ console.log('[MAIN    ]');
 // Load environment variables and configuration
 console.log('[MAIN    ] Loading environment variables and configuration...');
 dotenv.config();
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mandelbrok8s';
-const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
-const PYTHON_SCRIPT_PATH = process.env.PYTHON_SCRIPT_PATH || path.join(__dirname, '../../renderer/mandelbrok8s.py');
+const defaultMongoUri = 'mongodb://localhost:27017/mandelbrok8s';
+const defaultPythonBin = 'python3';
+const defaultPythonScriptPath = '../../renderer/mandelbrok8s.py';
+const MONGO_URI = process.env.MONGO_URI || defaultMongoUri;
+const PYTHON_BIN = process.env.PYTHON_BIN || defaultPythonBin;
+const PYTHON_SCRIPT_PATH__ = process.env.PYTHON_SCRIPT_PATH || defaultPythonScriptPath
+const PYTHON_SCRIPT_PATH = path.join(__dirname, PYTHON_SCRIPT_PATH__);
 console.log('[MAIN    ]   Configuration loaded:');
 console.log(`[MAIN    ]     MONGO_URI: ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
 console.log(`[MAIN    ]     PYTHON_BIN: ${PYTHON_BIN}`);

@@ -1,6 +1,7 @@
 // /src/services/worker.service.ts - Service functions for the Mandelbrok8s worker application, including task claiming, rendering, and GridFS storage.
 
 // Import required modules
+import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { execFile } from 'child_process';
@@ -43,18 +44,24 @@ export function getGlobalConfig() {
 // Run the Python renderer for a given task and return the path to the generated image along with the standard output
 function runRenderer(task: any, pythonBin: string, scriptPath: string): Promise<{ tempOutputPath: string; stdout: string }> {
   return new Promise((resolve, reject) => {
+    const defaultResolutionWidth = 1920;
+    const defaultResolutionHeight = 1080;
+    const defaultIterations = 1000;
+    const defaultZoom = 1.0;
+    const defaultCenterX = -0.5;
+    const defaultCenterY = 0.0;
     const tempOutputPath = path.join(__dirname, `../../temp_${task._id}.png`);
 
     const renderConfig = task.renderConfig || {};
     const resolution = renderConfig.resolution || {};
-    const center = renderConfig.center || [-0.5, 0.0];
+    const center = renderConfig.center || [defaultCenterX, defaultCenterY];
 
-    const width = resolution.width || 1920;
-    const height = resolution.height || 1080;
-    const iterations = renderConfig.iterations || 1000;
-    const zoom = renderConfig.zoom || 1.0;
-    const centerX = center[0] !== undefined ? center[0] : -0.5;
-    const centerY = center[1] !== undefined ? center[1] : 0.0;
+    const width = resolution.width || defaultResolutionWidth;
+    const height = resolution.height || defaultResolutionHeight;
+    const iterations = renderConfig.iterations || defaultIterations;
+    const zoom = renderConfig.zoom || defaultZoom;
+    const centerX = center[0] !== undefined ? center[0] : defaultCenterX;
+    const centerY = center[1] !== undefined ? center[1] : defaultCenterY;
 
     const args = [
       scriptPath,
@@ -120,7 +127,7 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
         $set: { 
           status: 'processing', 
           claimedAt: claimTime,
-          claimedBy: process.env.HOSTNAME || 'local-worker',
+          claimedBy: `${os.hostname()}-pid-${process.pid}`,
           updatedAt: claimTime
         } 
       },
