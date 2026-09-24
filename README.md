@@ -208,18 +208,18 @@ Credential security (such as the MongoDB Atlas connection URI) is managed across
 The automated pipeline in `.github/workflows/deploy.yml` handles:
 1. **Build & Test:** Executing static checks and compiling multi-runtime images (Node.js + Python).
 2. **Registry Push:** Publishing the official image tagged with the commit SHA to the container registry.
-3. **Cluster Apply:** Securely connecting to the Kubernetes cluster in DigitalOcean and applying the updated manifests (`kubectl apply -f k8s/`).
+3. **Cluster Apply:** Securely connecting to the Kubernetes cluster in Oracle Cloud Infrastructure and applying the updated manifests (`kubectl apply -f k8s/`).
 
 ---
 
-## 🛠️ Deployment Guide (DigitalOcean DOKS + MongoDB Atlas)
+## 🛠️ Deployment Guide (Oracle Cloud Infrastructure OKE + MongoDB Atlas)
 
 > 💡 **Cloud-Agnostic Architecture Note:**  
-> While this guide demonstrates deployment on **DigitalOcean Kubernetes Service (DOKS)** for cost-efficiency and simplicity, all manifests in `k8s/` are **100% standard and idempotent**. The architecture is entirely **cloud-agnostic** and can be deployed seamlessly to AWS EKS, Google Cloud GKE, Azure AKS, or on-premises Kubernetes clusters without modifying any core manifest files.
+> While this guide demonstrates deployment on **Oracle Cloud Infrastructure (OKE)** for cost-efficiency and simplicity, all manifests in `k8s/` are **100% standard and idempotent**. The architecture is entirely **cloud-agnostic** and can be deployed seamlessly to AWS EKS, Google Cloud GKE, Azure AKS, or on-premises Kubernetes clusters without modifying any core manifest files.
 
 ### Prerequisites
 * A **MongoDB Atlas** account with a deployed database and its corresponding Connection String.
-* A configured and accessible Kubernetes cluster in **DigitalOcean (DOKS)** via `kubectl`.
+* A configured and accessible Kubernetes cluster in **Oracle Cloud Infrastructure (OKE)** via `kubectl`.
 * Local tools installed: `git`, `docker`, `kubectl`.
 
 ### 1. Clone the Repository
@@ -341,6 +341,7 @@ mandelbrok8s/
 │   ├── worker/                    # Node.js worker (Atomic polling + GridFS)
 │   └── renderer/                  # Python CLI script with Numba JIT for fractal computation
 ├── docker/
+│   ├── build.sh
 │   ├── Dockerfile.orchestrator
 │   └── Dockerfile.worker          # Multi-runtime image (Node.js + Python/Numba)
 ├── k8s/
