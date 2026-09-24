@@ -4,10 +4,17 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
-import { connectDB } from './config/database';
+import { connectDB, getDB } from './config/database';
 import healthRoutes from './routes/health.routes';
 import metricsRoutes from './routes/metrics.routes';
 import { refreshGlobalConfig, getGlobalConfig, claimAndProcessTask } from './services/worker.service';
+
+
+
+
+// Variable to track server and graceful shutdown state for readiness checks
+let server: any = null;
+let isShuttingDown = false;
 
 
 
@@ -77,6 +84,72 @@ async function scheduleNextPoll() {
 
 
 
+// Helper to check shutdown status (can be exported or used in health controller if desired)
+export function getIsShuttingDown(): boolean {
+  return isShuttingDown;
+}
+
+
+
+
+// Graceful shutdown handler for the worker
+const gracefulWorkerShutdown = async (signal: string) => {
+  console.log(`[WORKER  ] Received ${signal}. Starting graceful shutdown...`);
+  console.log('[WORKER  ] Worker is gracefully shutting down...');
+  isShuttingDown = true;
+
+  // Forceful shutdown timer in case things hang
+  const forceTimeout = setTimeout(() => {
+    console.error('[WORKER  ] Could not complete graceful shutdown in time...');
+    console.error('[WORKER  ] Forcefully shutting down now.');
+    process.exit(1);
+  }, 10000).unref();
+
+  try {
+    // Stop the HTTP healthcheck server if running
+    if (server) {
+      console.log('[WORKER  ] Stopping HTTP healthcheck server...');
+      await new Promise<void>((resolve) => {
+        server.close(() => {
+          console.log('[WORKER  ] HTTP healthcheck server stopped.');
+          resolve();
+        });
+      });
+    }
+
+    // Close the MongoDB connection
+    console.log('[WORKER  ] Closing MongoDB connection...');
+    try {
+      const DB = getDB();
+      if (DB && DB.db && DB.db.client) {
+        await DB.db.client.close();
+        console.log('[WORKER  ] MongoDB connection closed.');
+      }
+    } catch (err) {
+      console.error('[WORKER  ] Error closing MongoDB connection:', err);
+    }
+    console.log('[WORKER  ] Graceful shutdown completed. Exiting process.');
+    clearTimeout(forceTimeout);
+    process.exit(0);
+  } catch (err) {
+    console.error('[WORKER  ] Error during graceful shutdown:', err);
+    console.error('[WORKER  ] Forcefully shutting down now.');
+    clearTimeout(forceTimeout);
+    process.exit(1);
+  }
+};
+
+
+
+
+// Listen for termination signals to initiate graceful shutdown
+console.log('[MAIN    ] Listening for termination signals (SIGTERM, SIGINT) to initiate graceful shutdown.');
+process.on('SIGTERM', () => gracefulWorkerShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulWorkerShutdown('SIGINT'));
+
+
+
+
 // Worker startup and initialization logic
 async function startWorker() {
   try {
@@ -101,7 +174,7 @@ async function startWorker() {
     // Start the HTTP healthcheck server based on the configured port
     const port = globalConfig.worker.port;
     console.log(`[WORKER  ] Starting HTTP healthcheck server on port ${port}...`);
-    app.listen(port, () => {
+    server = app.listen(port, () => {
       console.log(`[WORKER  ] Healthcheck probe server listening on port ${port}`);
     });
 
