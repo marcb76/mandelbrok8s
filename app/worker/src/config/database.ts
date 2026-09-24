@@ -7,9 +7,10 @@ import { MongoClient, Db, Collection, GridFSBucket } from 'mongodb';
 
 
 // Database connection and collection references
+const bucketName = 'fractals';
 let db: Db;
+let globalConfigCollection: Collection;
 let tasksCollection: Collection;
-let configCollection: Collection;
 let gridFSBucket: GridFSBucket;
 let isConnected = false;
 
@@ -21,9 +22,9 @@ export async function connectDB(mongoUri: string): Promise<void> {
   const client = new MongoClient(mongoUri);
   await client.connect();
   db = client.db();
+  globalConfigCollection = db.collection(`global_config`);
   tasksCollection = db.collection(`tasks`);
-  configCollection = db.collection(`config`);
-  gridFSBucket = new GridFSBucket(db, { bucketName: `fs` });
+  gridFSBucket = new GridFSBucket(db, { bucketName: bucketName });
   isConnected = true;
 }
 
@@ -34,8 +35,8 @@ export async function connectDB(mongoUri: string): Promise<void> {
 export function getDB() {
   return {
     db,
+    globalConfigCollection,
     tasksCollection,
-    configCollection,
     gridFSBucket
   };
 }

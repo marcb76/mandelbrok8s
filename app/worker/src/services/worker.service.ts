@@ -18,8 +18,8 @@ let globalConfig: any = null;
 // Refresh the global configuration from the database
 export async function refreshGlobalConfig(): Promise<boolean> {
   try {
-    const { configCollection } = getDB();
-    const doc = await configCollection.findOne({ _id: 'global_config' as any });
+    const { globalConfigCollection } = getDB();
+    const doc = await globalConfigCollection.findOne({ _id: 'global_config' as any });
     if (doc) {
       globalConfig = doc;
       return true;
@@ -139,7 +139,7 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
       console.log('[CLAIMER ] No pending tasks found.');
       return;
     }
-    console.log(`[CLAIMER ]     Task acquired. ID: ${task._id}`);
+    console.log(`[CLAIMER ]   Task acquired. ID: ${task._id}`);
 
     // At this point, the task has been successfully claimed and is ready for processing
     // Record the start time for image processing
@@ -153,13 +153,13 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
     console.log(`[CLAIMER ] Executing renderer for task ID: ${task._id}`);
     const { tempOutputPath, stdout } = await runRenderer(task, pythonBin, scriptPath);
     tempFilePath = tempOutputPath;
-    console.log(`[CLAIMER ]     Renderer execution completed for task ID: ${task._id}`);
+    console.log(`[CLAIMER ]   Renderer execution completed for task ID: ${task._id}`);
 
     // Record the time when the image rendering finished and save the rendered image to GridFS
     console.log(`[CLAIMER ] Saving rendered image (${tempFilePath}) to GridFS for task ID: ${task._id}`);
     const gridFsFileId = await saveToGridFS(`fractal_${task._id}.png`, tempFilePath);
     const imageFinishedAt = new Date();
-    console.log(`[CLAIMER ]     Rendered image saved to GridFS with ID: ${gridFsFileId} for task ID: ${task._id}`);
+    console.log(`[CLAIMER ]   Rendered image saved to GridFS with ID: ${gridFsFileId} for task ID: ${task._id}`);
 
     // Update the task with completion details, including render time and GridFS file reference
     console.log(`[CLAIMER ] Updating task completion details for task ID: ${task._id}`);
@@ -171,6 +171,7 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
         $set: {
           status: 'completed',
           imageFinishedAt: imageFinishedAt,
+          gridFSFileId: gridFsFileId,
           image: {
             $ref: 'fs.files',$id: gridFsFileId
           },

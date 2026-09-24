@@ -37,8 +37,8 @@ const PYTHON_BIN = process.env.PYTHON_BIN || defaultPythonBin;
 const PYTHON_SCRIPT_PATH__ = process.env.PYTHON_SCRIPT_PATH || defaultPythonScriptPath
 const PYTHON_SCRIPT_PATH = path.join(__dirname, PYTHON_SCRIPT_PATH__);
 console.log('[MAIN    ]   Configuration loaded:');
-console.log(`[MAIN    ]     MONGO_URI: ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
-console.log(`[MAIN    ]     PYTHON_BIN: ${PYTHON_BIN}`);
+console.log(`[MAIN    ]     MONGO_URI:          ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
+console.log(`[MAIN    ]     PYTHON_BIN:         ${PYTHON_BIN}`);
 console.log(`[MAIN    ]     PYTHON_SCRIPT_PATH: ${PYTHON_SCRIPT_PATH}`);
 console.log('[MAIN    ]');
 console.log('[MAIN    ]');
@@ -54,10 +54,10 @@ app.use('/', healthRoutes);
 app.use('/', metricsRoutes);
 console.log('[MAIN    ] Express application initialized and routes registered: ');
 healthRoutes.stack.forEach((route: any) => {
-  console.log(`[MAIN    ]   ${route.route?.path}`);
+  console.log(`[MAIN    ]   ${route.route?.methods ? Object.keys(route.route?.methods).join(', ') : ''} ${route.route?.path}`);
 });
 metricsRoutes.stack.forEach((route: any) => {
-  console.log(`[MAIN    ]   ${route.route?.path}`);
+  console.log(`[MAIN    ]   ${route.route?.methods ? Object.keys(route.route?.methods).join(', ') : ''} ${route.route?.path}`);
 });
 console.log('[MAIN    ]');
 console.log('[MAIN    ]');
@@ -87,19 +87,19 @@ async function startWorker() {
 
     // Fetch and refresh the global configuration from the database
     console.log('[WORKER  ] Fetching global_config from database...');
-    let configLoaded = await refreshGlobalConfig();
-    while (!configLoaded) {
+    let globalConfigLoaded = await refreshGlobalConfig();
+    while (!globalConfigLoaded) {
       console.warn('[WORKER  ]   global_config not found. Waiting for orchestrator initialization (retrying in 3s)...');
       await new Promise(resolve => setTimeout(resolve, 3000));
-      configLoaded = await refreshGlobalConfig();
+      globalConfigLoaded = await refreshGlobalConfig();
     }
     
     // Retrieve the global configuration after it has been successfully loaded
     const globalConfig = getGlobalConfig();
-    console.log('[WORKER  ]   global_config loaded successfully:', JSON.stringify(globalConfig.worker));
+    console.log('[WORKER  ]   global_config loaded successfully. Worker:', JSON.stringify(globalConfig.worker));
 
     // Start the HTTP healthcheck server based on the configured port
-    const port = globalConfig.worker.port || 8080;
+    const port = globalConfig.worker.port;
     console.log(`[WORKER  ] Starting HTTP healthcheck server on port ${port}...`);
     app.listen(port, () => {
       console.log(`[WORKER  ] Healthcheck probe server listening on port ${port}`);
