@@ -194,21 +194,31 @@ To ensure code updates or security patches do not interrupt task processing or A
 
 ## 🔐 Secret Management
 
-Credential security (such as the MongoDB Atlas connection URI) is managed across two strictly separated layers:
+Credential security (such as the MongoDB Atlas connection URI and TLS certificates) is managed across two strictly separated layers:
 
 1. **GitHub Secrets (CI/CD):** 
-   * Store credentials for accessing the container registry (GitHub Packages / Docker Hub) and the Kubernetes access token (`KUBE_CONFIG`).
+   * Store credentials required for authentication with the container registry and Oracle Cloud Infrastructure (OCI). The required secrets are:
+     * `DOCKER_USERNAME`: Your Docker Hub username.
+     * `DOCKER_PASSWORD`: Your Docker Hub password or access token.
+     * `OCI_USER_OCID`: The OCID of your OCI user.
+     * `OCI_TENANCY_OCID`: The OCID of your tenancy.
+     * `OCI_REGION`: The target OCI region (e.g., `us-ashburn-1`).
+     * `OCI_FINGERPRINT`: The fingerprint of your OCI API signing key.
+     * `OCI_PRIVATE_KEY`: The contents of your OCI private API key (`.pem`).
+     * `OCI_CLUSTER_OCID`: The OCID of your OKE cluster (`mandelbrok8s`).
+
 2. **Kubernetes Secrets:**
-   * Credentials are never exposed in plain text within repositories. They are injected into the cluster via Kubernetes `Secret` resources and mounted into pods via secure runtime **environment variables**.
+   * Credentials are never exposed in plain text within repositories. Actual secret resources must be generated locally from their respective templates (e.g., creating `secrets-mongo.yaml` and `secrets-tls.yaml` from `secrets-mongo.yaml.template` and `secrets-tls.yaml.template`) before being applied to the cluster.
 
 ---
 
 ## 🤖 CI/CD with GitHub Actions
 
-The automated pipeline in `.github/workflows/deploy.yml` handles:
-1. **Build & Test:** Executing static checks and compiling multi-runtime images (Node.js + Python).
-2. **Registry Push:** Publishing the official image tagged with the commit SHA to the container registry.
-3. **Cluster Apply:** Securely connecting to the Kubernetes cluster in Oracle Cloud Infrastructure and applying the updated manifests (`kubectl apply -f k8s/`).
+The automated pipeline defined in `.github/workflows/ci-cd-oke.yaml` handles the full deployment lifecycle:
+1. **Checkout & Setup:** Clones the repository, sets up Docker Buildx, and authenticates securely with Docker Hub.
+2. **Build & Push:** Compiles the multi-runtime images (`Dockerfile.orchestrator` and `Dockerfile.worker`) and pushes them to Docker Hub tagged as `latest`.
+3. **OCI & Kubernetes Configuration:** Installs the OCI CLI, dynamically configures the OCI credentials and private key inside the runner, and retrieves the cluster access configuration (`kubeconfig`) for the OKE cluster.
+4. **Cluster Apply:** Applies all Kubernetes manifests declaratively (`kubectl apply -f k8s/`), ensuring the namespace, deployments, services, and HPAs are updated automatically on every push to the `main` branch.
 
 ---
 
@@ -334,7 +344,7 @@ While Worker pods operate as asynchronous background consumers, each replica exe
 mandelbrok8s/
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml             # GitHub Actions pipeline (CI/CD)
+│       └── ci-cd-oke.yaml         # GitHub Actions pipeline (CI/CD)
 ├── .gitignore
 ├── app/
 │   ├── orchestrator/              # Node.js API to inject tasks
