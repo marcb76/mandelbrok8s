@@ -13,6 +13,13 @@ import taskRoutes from './routes/task.routes';
 
 
 
+// Variable to track server and graceful shutdown state for readiness checks
+let server: any = null;
+let isShuttingDown = false;
+
+
+
+
 // Define a default global configuration for the Mandelbrok8s
 const defaultGlobalConfig = {
   _id: globalConfigId,
@@ -108,6 +115,72 @@ console.log('[MAIN        ]');
 
 
 
+// Helper to check shutdown status (can be exported or used in health controller if desired)
+export function getIsShuttingDown(): boolean {
+  return isShuttingDown;
+}
+
+
+
+
+// Graceful shutdown handler
+const gracefulOrchestratorShutdown = async (signal: string) => {
+  // Log the received shutdown signal and mark the orchestrator as shutting down
+  console.log(`[ORCHESTRATOR] Received ${signal}. Starting graceful shutdown...`);
+  console.log('[ORCHESTRATOR] Orchestrator is gracefully shutting down...');
+  isShuttingDown = true;
+
+  // Forceful shutdown if graceful shutdown takes too long
+  const forceTimeout = setTimeout(() => {
+    console.error('[ORCHESTRATOR] Could not complete graceful shutdown in time...');
+    console.error('[ORCHESTRATOR] Forcefully shutting down now.');
+    process.exit(1);
+  }, 10000).unref();
+
+  try {
+    // Stop the HTTP server if it has been started
+    if (server) {
+      console.log('[ORCHESTRATOR] Stopping HTTP server...');
+      await new Promise<void>((resolve) => {
+        server.close(async () => {
+          console.log('[ORCHESTRATOR] HTTP server stopped.');
+          resolve();
+        });
+      });
+    }
+
+    // Close the MongoDB connection
+    console.log('[ORCHESTRATOR] Closing MongoDB connection...');
+    try {
+      const DB = getDB();
+      if (DB && DB.db && DB.db.client) {
+        await DB.db.client.close();
+        console.log('[ORCHESTRATOR] MongoDB connection closed.');
+      }
+    } catch (err) {
+      console.error('[ORCHESTRATOR] Error closing MongoDB connection:', err);
+    }
+    console.log('[ORCHESTRATOR] Graceful shutdown completed. Exiting process.');
+    clearTimeout(forceTimeout);
+    process.exit(0);
+  } catch (err) {
+    console.error('[ORCHESTRATOR] Error during graceful shutdown:', err);
+    clearTimeout(forceTimeout);
+    process.exit(1);
+  }
+};
+
+
+
+
+// Listen for termination signals to initiate graceful shutdown
+console.log('[MAIN        ] Listening for termination signals (SIGTERM, SIGINT) to initiate graceful shutdown.');
+process.on('SIGTERM', () => gracefulOrchestratorShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulOrchestratorShutdown('SIGINT'));    
+
+
+
+
 // Orchestrator startup and initialization logic
 async function startOrchestrator() {
   try {
@@ -124,11 +197,11 @@ async function startOrchestrator() {
     console.log('[ORCHESTRATOR]                                      fractalDefaults: ', JSON.stringify(globalConfig?.fractalDefaults));
     console.log('[ORCHESTRATOR]                                      k8sHpa:          ', JSON.stringify(globalConfig?.k8sHpa));
 
-    // Start the HTTP orchestrator API server based on the configured port
+    // Start the HTTP orchestrator API http server based on the configured port
     const port = globalConfig?.orchestrator.port;
-    console.log(`[ORCHESTRATOR] Starting HTTP server on port ${port}...`);
-    app.listen(port, () => {
-      console.log(`[ORCHESTRATOR] Orchestrator API server listening on port ${port}`);
+    console.log(`[ORCHESTRATOR] Starting API HTTP server on port ${port}...`);
+    server = app.listen(port, () => {
+      console.log(`[ORCHESTRATOR] API HTTP server listening on port ${port}`);
     });
   } catch (err) {
     // Handle any errors that occur during orchestrator startup
