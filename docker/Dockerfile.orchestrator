@@ -1,0 +1,25 @@
+# ==============================================================================
+# Dockerfile: Mandelbrok8s Orchestrator
+# Description: Node.js container for task distribution, state management,
+#              and Kubernetes pod orchestration.
+# Author: Marc Bonet Bretto
+# ==============================================================================
+
+# Use official Node.js runtime as parent image
+FROM node:20-bookworm
+
+# Set working directory inside the container for the orchestrator application
+WORKDIR /app/orchestrator
+
+# Copy package definition files and install production dependencies
+COPY app/orchestrator/package*.json ./
+RUN npm ci
+
+# Copy the compiled application code
+COPY app/orchestrator/dist/ ./dist/
+
+# Expose default application port (runtime dynamically respects configuration from DB/Env)
+EXPOSE 8080
+
+# Start the orchestrator application from the compiled JavaScript output
+CMD ["node", "dist/server.js"]

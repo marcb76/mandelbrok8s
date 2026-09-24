@@ -1,0 +1,42 @@
+# ==============================================================================
+# Dockerfile: Mandelbrok8s Worker
+# Description: Multi-runtime container (Node.js + Python/NumPy) for task polling
+#              and JIT fractal rendering.
+# Author: Marc Bonet Bretto
+# ==============================================================================
+
+# Use official Node.js runtime as parent image
+FROM node:20-bookworm
+
+# Install Python 3, pip, and essential build dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory inside the container for the worker application
+WORKDIR /app/worker
+
+# Copy package definition files and install Node.js production dependencies
+COPY app/worker/package*.json ./
+RUN npm ci
+
+# Copy the compiled application code
+COPY app/worker/dist/ ./dist/
+
+# Copy the Python renderer script and its requirements file
+COPY app/renderer/mandelbrok8s.py /app/renderer/mandelbrok8s.py
+COPY app/renderer/mandelbrok8s-requirements /app/renderer/mandelbrok8s-requirements
+
+# Install Python dependencies globally within the container
+RUN pip3 install --no-cache-dir -r /app/renderer/mandelbrok8s-requirements --break-system-packages
+
+# Set default runtime environment variables pointing to internal container paths
+ENV PYTHON_BIN=python3
+ENV PYTHON_SCRIPT_PATH=/app/renderer/mandelbrok8s.py
+
+# Expose default application port (runtime dynamically respects configuration from DB)
+EXPOSE 8081
+
+# Start the worker application from the compiled JavaScript output
+CMD ["node", "dist/server.js"]
