@@ -12,7 +12,6 @@ import { validateUpdateGlobalConfig } from '../validators/globalConfig.validator
 const router = Router();
 
 router.get('/api/v1/global_config', GlobalConfigController.getConfig);
-router.put('/api/v1/global_config', validateUpdateGlobalConfig, GlobalConfigController.updateConfig);
 router.patch('/api/v1/global_config', validateUpdateGlobalConfig, GlobalConfigController.updateConfig);
 
 export default router;

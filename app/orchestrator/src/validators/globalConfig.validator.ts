@@ -8,8 +8,18 @@ import { Request, Response, NextFunction } from 'express';
 
 
 
-// PUT / PATCH /api/v1/global_config
+// PATCH /api/v1/global_config
 export const validateUpdateGlobalConfig = [
+  // Orchestrator configuration validation
+  body('orchestrator.port', 'Please provide a valid orchestrator port between 1 and 65535')
+    .optional({ values: 'undefined' })
+    .isInt({ min: 1, max: 65535 })
+    .bail(),
+  body('orchestrator.taskTimeoutMs', 'Please provide a valid orchestrator taskTimeoutMs greater than 0')
+    .optional({ values: 'undefined' })
+    .isInt({ gt: 0 })
+    .bail(),
+
   // Worker configuration validation
   body('worker.port', 'Please provide a valid worker port between 1 and 65535')
     .optional({ values: 'undefined' })
@@ -19,7 +29,7 @@ export const validateUpdateGlobalConfig = [
     .optional({ values: 'undefined' })
     .isInt({ gt: 99 })
     .bail(),
-  body('worker.taskTimeoutMs', 'Please provide a valid taskTimeoutMs greater than 0')
+  body('worker.taskTimeoutMs', 'Please provide a valid worker taskTimeoutMs greater than 0')
     .optional({ values: 'undefined' })
     .isInt({ gt: 0 })
     .bail(),

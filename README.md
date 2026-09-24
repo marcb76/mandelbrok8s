@@ -297,8 +297,7 @@ The Orchestrator exposes a RESTful API (`/api/v1`) providing complete operationa
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | **GET** | `/api/v1/global_config` | Fetches the active operational defaults and runtime configuration from MongoDB. |
-| **PUT** | `/api/v1/global_config` | Dynamically updates operational parameters (polling intervals, timeouts, HPA thresholds, fractal defaults). |
-| **PATCH** | `/api/v1/global_config` | Partially updates specific operational parameters without requiring the full configuration payload. |
+| **PATCH** | `/api/v1/global_config` | Partially updates specific operational parameters (polling intervals, timeouts, HPA thresholds, fractal defaults) without overwriting omitted fields. |
 | **GET** | `/api/v1/tasks` | Lists rendering task documents with optional pagination and status filtering (`?status=pending`). |
 | **POST** | `/api/v1/tasks` | Injects new rendering tasks. Accepts `{ "count": N }` to generate multi-task load bursts for scaling demos. |
 | **GET** | `/api/v1/tasks/{id}` | Retrieves execution state, claim metadata, progress, and performance metrics for a specific task. |
