@@ -11,9 +11,9 @@ import { validatePodName } from '../validators/k8s.validator';
 // Initialize the router and define routes for Kubernetes cluster metrics
 const router = Router();
 
-router.get('/', K8sController.getClusterHealth);
-router.get('/pods', K8sController.listPods);
-router.get('/pods/:name', validatePodName, K8sController.getPodDetails);
-router.get('/hpa', K8sController.getHpaMetrics);
+router.get('/api/v1/k8s', K8sController.getClusterHealth);
+router.get('/api/v1/k8s/pods', K8sController.listPods);
+router.get('/api/v1/k8s/pods/:name', validatePodName, K8sController.getPodDetails);
+router.get('/api/v1/k8s/hpa', K8sController.getHpaMetrics);
 
 export default router;

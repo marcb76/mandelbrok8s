@@ -11,11 +11,11 @@ import { validateCreateTask, validateTaskId } from '../validators/task.validator
 // Initialize the router and define routes for tasks
 const router = Router();
 
-router.get('/', TaskController.listTasks);
-router.post('/', validateCreateTask, TaskController.createTasks);
-router.get('/:id', validateTaskId, TaskController.getTaskById);
-router.get('/:id/image', validateTaskId, TaskController.streamTaskImage);
-router.delete('/:id', validateTaskId, TaskController.deleteTaskById);
-router.delete('/', TaskController.deleteAllTasks);
+router.get('/api/v1/tasks/', TaskController.listTasks);
+router.post('/api/v1/tasks', validateCreateTask, TaskController.createTasks);
+router.get('/api/v1/tasks/:id', validateTaskId, TaskController.getTaskById);
+router.get('/api/v1/tasks/:id/image', validateTaskId, TaskController.streamTaskImage);
+router.delete('/api/v1/tasks/:id', validateTaskId, TaskController.deleteTaskById);
+router.delete('/api/v1/tasks', TaskController.deleteAllTasks);
 
 export default router;

@@ -13,8 +13,8 @@ export class GlobalConfigController {
   public static async getConfig(req: Request, res: Response): Promise<void> {
     try {
       // Fetch the global configuration document from the database
-      const { configCollection } = getDB();
-      const config = await configCollection.findOne({ _id: 'global_config' as any });
+      const { globalConfigCollection } = getDB();
+      const config = await globalConfigCollection.findOne({ _id: 'global_config' as any });
       if (!config) {
         // Respond with a 404 error if the global configuration is not found
         res.status(404).json({
@@ -47,20 +47,20 @@ export class GlobalConfigController {
   public static async updateConfig(req: Request, res: Response): Promise<void> {
     try {
       // Fetch the global configuration collection from the database
-      const { configCollection } = getDB();
+      const { globalConfigCollection } = getDB();
 
       // Prepare the update data with the current timestamp
       const updateData = { ...req.body, updatedAt: new Date() };
 
       // Update the global configuration document in the database
-      const result = await configCollection.updateOne(
+      const result = await globalConfigCollection.updateOne(
         { _id: 'global_config' as any },
         { $set: updateData },
         { upsert: true }
       );
 
       // Log the update and respond with updated global configuration
-      console.log('[CONFIG_CTRL] Global configuration updated successfully.');
+      console.log('[CONFIG_CTRL ] Global configuration updated successfully.');
       res.status(200).json({
         status: 'success',
         message: 'Global configuration updated successfully',
@@ -68,7 +68,7 @@ export class GlobalConfigController {
       });
     } catch (err: any) {
       // Log the error and respond with a 500 status code
-      console.error('[CONFIG_CTRL] Error updating global configuration:', err.message);
+      console.error('[CONFIG_CTRL ] Error updating global configuration:', err.message);
       res.status(500).json({
         status: 'error',
         message: 'Internal server error while updating global configuration',

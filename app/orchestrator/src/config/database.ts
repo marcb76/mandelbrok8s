@@ -1,32 +1,37 @@
 // /src/config/database.ts - Configuration and connection management for the MongoDB database used by the Mandelbrok8s orchestrator application
 
 // Import required modules
-import { MongoClient, Db, Collection } from 'mongodb';
+import { MongoClient, Db, Collection, GridFSBucket } from 'mongodb';
 
 
 
 
 // Database connection and collection references
+const bucketName = 'fractals';
 let db: Db;
+let globalConfigCollection: Collection;
 let tasksCollection: Collection;
-let configCollection: Collection;
+let gridFSBucket: GridFSBucket;
 let isConnected = false;
 
 
 
 
-// Connect to the MongoDB database, initialize collections, and seed global configuration if missing
-export async function connectDB(mongoUri: string, defaultConfig: any): Promise<void> {
+// Connect to the MongoDB database and initialize collections and GridFS bucket... and seed global configuration if missing
+export async function connectDB(mongoUri: string, defaultGlobalConfig: any): Promise<void> {
   const client = new MongoClient(mongoUri);
   await client.connect();
   db = client.db();
+  globalConfigCollection = db.collection(`global_config`);
   tasksCollection = db.collection(`tasks`);
-  configCollection = db.collection(`config`);
+  gridFSBucket = new GridFSBucket(db, { bucketName: bucketName });
 
   // If no global configuration exists, insert the default configuration
-  const existingConfig = await configCollection.findOne({ _id: `global_config` as any });
-  if (!existingConfig)
-    await configCollection.insertOne(defaultConfig);
+  const existingConfig = await globalConfigCollection.findOne({ _id: `global_config` as any });
+  if (!existingConfig) {
+    await globalConfigCollection.insertOne(defaultGlobalConfig);
+    console.log('[DATABASE]   No existing global configuration found. Default global configuration inserted');
+  }
   isConnected = true;
 }
 
@@ -37,8 +42,9 @@ export async function connectDB(mongoUri: string, defaultConfig: any): Promise<v
 export function getDB() {
   return {
     db,
+    globalConfigCollection,
     tasksCollection,
-    configCollection
+    gridFSBucket
   };
 }
 

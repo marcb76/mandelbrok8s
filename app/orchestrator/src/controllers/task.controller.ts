@@ -9,6 +9,7 @@ import { ObjectId, GridFSBucket } from 'mongodb';
 
 
 // TaskController
+const bucketName = 'fractals';
 export class TaskController {
   // GET /api/v1/tasks - Lists rendering task documents with optional pagination and status filtering
   public static async listTasks(req: Request, res: Response): Promise<void> {
@@ -83,11 +84,11 @@ export class TaskController {
       let renderConfig = req.body.renderConfig;
 
       // Get references to the tasks and configuration collections from the database
-      const { tasksCollection, configCollection } = getDB();
+      const { tasksCollection, globalConfigCollection } = getDB();
 
       // If renderConfig is not provided in request, fetch defaults from global_config
       if (!renderConfig) {
-        const globalConfig = await configCollection.findOne({ _id: `global_config` as any });
+        const globalConfig = await globalConfigCollection.findOne({ _id: `global_config` as any });
         renderConfig = globalConfig ? globalConfig.fractalDefaults : defaultRenderConfig;
       }
 
@@ -195,7 +196,7 @@ export class TaskController {
       }
 
       // Initialize the GridFS bucket and prepare the file ID for streaming
-      const bucket = new GridFSBucket(db, { bucketName: 'fractals' });
+      const bucket = new GridFSBucket(db, { bucketName: bucketName });
       const fileId = new ObjectId(task.gridFSFileId);
 
       // Check if file exists in GridFS before attempting to stream it
@@ -258,8 +259,8 @@ export class TaskController {
       // If there is an associated GridFS image, delete it too to avoid orphaned files
       if (task.gridFSFileId) {
         try {
-          const bucket = new GridFSBucket(db, { bucketName: 'fractals' });
-          await bucket.delete(new ObjectId(task.gridFSFileId));
+          const { gridFSBucket } = getDB();
+          await gridFSBucket.delete(task.gridFSFileId);
         } catch (gridErr: any) {
           console.warn(`[TASK_CTRL] Warning: Could not delete GridFS file. Task ID: ${taskId}. Error: ${gridErr.message}`);
         }
@@ -298,10 +299,10 @@ export class TaskController {
 
       // Attempt to clean up all files in the GridFS bucket
       try {
-        const bucket = new GridFSBucket(db, { bucketName: 'fractals' });
-        const files = await bucket.find({}).toArray();
+        const { gridFSBucket } = getDB();
+        const files = await gridFSBucket.find({}).toArray();
         for (const file of files) {
-          await bucket.delete(file._id);
+          await gridFSBucket.delete(file._id);
         }
         console.log(`[TASK_CTRL] All files in the GridFS bucket deleted successfully.`);
       } catch (gridErr: any) {
