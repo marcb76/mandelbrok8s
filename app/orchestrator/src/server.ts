@@ -165,6 +165,7 @@ const gracefulOrchestratorShutdown = async (signal: string) => {
     process.exit(0);
   } catch (err) {
     console.error('[ORCHESTRATOR] Error during graceful shutdown:', err);
+    console.error('[ORCHESTRATOR] Forcefully shutting down now.');
     clearTimeout(forceTimeout);
     process.exit(1);
   }
