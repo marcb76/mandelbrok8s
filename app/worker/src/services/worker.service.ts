@@ -75,7 +75,7 @@ function runRenderer(task: any, pythonBin: string, scriptPath: string): Promise<
     ];
 
     // Execute the Python renderer with the specified arguments
-    console.log(`[RENDERER] Running Python renderer for task ID: ${task._id} with args: ${args.join(' ')}`);
+    console.log(`[RENDERER]     Running Python renderer for task ID: ${task._id} with args: ${args.join(' ')}`);
     execFile(pythonBin, args, (error, stdout, stderr) => {
       if (error) {
         console.error(`[RENDERER]     Python execution failed for task ID: ${task._id}: ${stderr || error.message}`);
@@ -92,7 +92,7 @@ function runRenderer(task: any, pythonBin: string, scriptPath: string): Promise<
 
 // Save a file to GridFS and return the file ID
 function saveToGridFS(filename: string, filePath: string): Promise<any> {
-  console.log(`[WORKER  ] Saving file to GridFS: ${filename}`);
+  console.log(`[WORKER  ]     Saving file to GridFS: ${filename}`);
   const { gridFSBucket } = getDB();
   return new Promise((resolve, reject) => {
     const uploadStream = gridFSBucket.openUploadStream(filename, {
@@ -136,7 +136,7 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
 
     if (!task) {
       // No pending tasks are available, exit the function
-      console.log('[CLAIMER ] No pending tasks found.');
+      console.log('[CLAIMER ]   No pending tasks found.');
       return;
     }
     console.log(`[CLAIMER ]   Task acquired. ID: ${task._id}`);
@@ -150,19 +150,19 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
     );
 
     // Execute the Python renderer to generate the image for the claimed task
-    console.log(`[CLAIMER ] Executing renderer for task ID: ${task._id}`);
+    console.log(`[CLAIMER ]   Executing renderer for task ID: ${task._id}`);
     const { tempOutputPath, stdout } = await runRenderer(task, pythonBin, scriptPath);
     tempFilePath = tempOutputPath;
     console.log(`[CLAIMER ]   Renderer execution completed for task ID: ${task._id}`);
 
     // Record the time when the image rendering finished and save the rendered image to GridFS
-    console.log(`[CLAIMER ] Saving rendered image (${tempFilePath}) to GridFS for task ID: ${task._id}`);
+    console.log(`[CLAIMER ]   Saving rendered image (${tempFilePath}) to GridFS for task ID: ${task._id}`);
     const gridFsFileId = await saveToGridFS(`fractal_${task._id}.png`, tempFilePath);
     const imageFinishedAt = new Date();
     console.log(`[CLAIMER ]   Rendered image saved to GridFS with ID: ${gridFsFileId} for task ID: ${task._id}`);
 
     // Update the task with completion details, including render time and GridFS file reference
-    console.log(`[CLAIMER ] Updating task completion details for task ID: ${task._id}`);
+    console.log(`[CLAIMER ]   Updating task completion details for task ID: ${task._id}`);
     const match = stdout.match(/render_time_sec=([\d.]+)/);
     const renderTimeSec = match ? parseFloat(match[1]) : null;
     await tasksCollection.updateOne(
@@ -182,10 +182,10 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
     );
 
     // Log the successful completion of the task with the GridFS file ID
-    console.log(`[CLAIMER ]     Task ${task._id} COMPLETED successfully. GridFS ID: ${gridFsFileId}`);
+    console.log(`[CLAIMER ]   Task ${task._id} COMPLETED successfully. GridFS ID: ${gridFsFileId}`);
   } catch (err: any) {
     // Handle any errors that occurred during task processing
-    console.error(`[CLAIMER ]     Error processing task ID: ${task ? task._id : 'unknown'}:`, err.message);
+    console.error(`[CLAIMER ]   Error processing task ID: ${task ? task._id : 'unknown'}:`, err.message);
     if (task) {
       const errorTime = new Date();
       await tasksCollection.updateOne(
@@ -197,7 +197,7 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
             updatedAt: errorTime
           }
         }
-      ).catch((dbErr: any) => console.error('[CLAIMER ]     Failed to update task status to failed:', dbErr));
+      ).catch((dbErr: any) => console.error('[CLAIMER ]   Failed to update task status to failed:', dbErr));
     }
   } finally {
     // Clean up the temporary file used for rendering the image
@@ -205,7 +205,7 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
       try {
         fs.unlinkSync(tempFilePath);
       } catch (cleanupErr: any) {
-        console.error(`[CLAIMER ]     Failed to delete temp file ${tempFilePath}:`, cleanupErr.message);
+        console.error(`[CLAIMER ]   Failed to delete temp file ${tempFilePath}:`, cleanupErr.message);
       }
     }
   }
