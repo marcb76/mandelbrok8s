@@ -25,16 +25,16 @@ spec:
           image: marcb76/mandelbrok8s-orchestrator:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 3000
+            - containerPort: 8080
               name: http
           env:
-            - name: PORT
-              value: "3000"
             - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
                   name: mongo-secrets
                   key: MONGO_URI
+            - name: WORKER_HPA_NAME
+              value: "worker-hpa"
           resources:
             requests:
               cpu: 100m
@@ -45,7 +45,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 3000
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 2
@@ -53,7 +53,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 3000
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 2

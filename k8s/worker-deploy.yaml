@@ -25,20 +25,14 @@ spec:
           image: marcb76/mandelbrok8s-worker:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - containerPort: 8081
               name: probes
           env:
-            - name: PORT
-              value: "8080"
             - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
                   name: mongo-secrets
                   key: MONGO_URI
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
           resources:
             requests:
               cpu: 250m
@@ -49,7 +43,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 8081
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 2
@@ -57,7 +51,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8080
+              port: 8081
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 2
