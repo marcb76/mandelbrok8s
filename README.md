@@ -88,10 +88,13 @@ The Orchestrator maintains and updates a single configuration document (`_id: "g
 ```json
 {
   "_id": "global_config",
+  "orchestrator": {
+    "port": 8080,
+    "taskTimeoutMs": 30000,
+  },
   "worker": {
     "port": 8080,
     "pollIntervalMs": 1000,
-    "taskTimeoutMs": 30000,
     "tasksConcurrency": 1
   },
   "fractalDefaults": {
@@ -114,9 +117,12 @@ The Orchestrator maintains and updates a single configuration document (`_id: "g
 ```
 
 #### Parameter Breakdown:
-* **`worker`:** Controls worker execution behavior.
-  * `pollIntervalMs`: Interval in milliseconds between MongoDB atomic task queries (`findOneAndUpdate`).
+* **`orchestrator`:** Controls orchestrator execution behavior.
+  * `port`: TCP port where for REST petitions.
   * `taskTimeoutMs`: Time-To-Live (TTL) in milliseconds before an uncompleted `processing` task is reclaimed.
+* **`worker`:** Controls worker execution behavior.
+  * `port`: TCP port where for REST petitions.
+  * `pollIntervalMs`: Interval in milliseconds between MongoDB atomic task queries (`findOneAndUpdate`).
   * `tasksConcurrency`: Maximum concurrent tasks processed per worker pod.
 * **`fractalDefaults`:** Default render parameters (iterations, resolution, zoom, and center coordinates) used when API requests omit explicit payloads.
 * **`k8sHpa`:** Live Kubernetes Horizontal Pod Autoscaler tuning parameters patched on-the-fly by the Orchestrator via the Kubernetes API (`autoscaling/v2`).
@@ -297,6 +303,7 @@ The Orchestrator exposes a RESTful API (`/api/v1`) providing complete operationa
 | **POST** | `/api/v1/tasks` | Injects new rendering tasks. Accepts `{ "count": N }` to generate multi-task load bursts for scaling demos. |
 | **GET** | `/api/v1/tasks/{id}` | Retrieves execution state, claim metadata, progress, and performance metrics for a specific task. |
 | **GET** | `/api/v1/tasks/{id}/image` | Streams the rendered PNG binary directly from MongoDB GridFS binary storage. |
+| **DELETE** | `/api/v1/tasks/{id}` | Flushes task records and associated GridFS chunks to reset the environment state. |
 | **DELETE** | `/api/v1/tasks` | Flushes all task records and associated GridFS chunks to reset the environment state. |
 | **GET** | `/api/v1/k8s` | Returns overall Kubernetes cluster health, node readiness, and API connectivity status. |
 | **GET** | `/api/v1/k8s/pods` | Lists active pod replicas, phase status, node distribution, and individual CPU/memory metrics. |
