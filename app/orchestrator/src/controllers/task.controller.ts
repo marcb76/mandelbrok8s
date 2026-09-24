@@ -61,7 +61,9 @@ export class TaskController {
 
 
 
-  // POST /api/v1/tasks - Injects new rendering tasks (supports burst creation via count)
+  // POST /api/v1/tasks - Injects new rendering tasks (supports burst creation and selective randomization)
+  // If randomizeRender is true, the MISSED fields in the render configuration will be selectively randomized for each task
+  // If not, the render configuration will strictly follow the user-provided values and global/base defaults.
   public static async createTasks(req: Request, res: Response): Promise<void> {
     try {
       // Define fallback defaults
@@ -79,26 +81,70 @@ export class TaskController {
         center: [defaultCenter_x, defaultCenter_y]
       };
 
-      // Extract the count and renderConfig from the request body
+      // Extract parameters from the request body
       const count = req.body.count || defaultCount;
-      let renderConfig = req.body.renderConfig;
+      const randomizeRender = req.body.randomizeRender === true;
+      const userRenderConfig = req.body.renderConfig || {};
 
       // Get references to the tasks and configuration collections from the database
       const { tasksCollection, globalConfigCollection } = getDB();
 
-      // If renderConfig is not provided in request, fetch defaults from global_config
-      if (!renderConfig) {
-        const globalConfig = await globalConfigCollection.findOne({ _id: globalConfigId as any });
-        renderConfig = globalConfig ? globalConfig.fractalDefaults : defaultRenderConfig;
-      }
+      // Fetch global defaults as base fallback
+      const globalConfig = await globalConfigCollection.findOne({ _id: globalConfigId as any });
+      const baseDefaults = globalConfig ? globalConfig.fractalDefaults : defaultRenderConfig;
+
+      // Interesting coordinate pool for randomization/fallback
+      const interestingCenters = [
+        [-0.743643887037158704752191506114774, 0.131825904205311970493132056385139],
+        [-0.75, 0.1],
+        [-1.25, 0.0],
+        [0.0, 0.0],
+        [-0.15, 1.04],
+        [0.360240443437614387, -0.64131306106480317]
+      ];
 
       // Generate the list of tasks to insert into the database
       const tasksToInsert = [];
       const now = new Date();
+
       for (let i = 0; i < count; i++) {
+        // Pre-calculate random candidates for this iteration if needed
+        const randomCenterBase = interestingCenters[Math.floor(Math.random() * interestingCenters.length)];
+        const randomIterations = Math.floor(Math.random() * (3000 - 500 + 1)) + 500;
+        const randomZoom = parseFloat((Math.random() * (50.0 - 1.0) + 1.0).toFixed(2));
+        const randomCenter = [
+          parseFloat((randomCenterBase[0] + (Math.random() - 0.5) * 0.1).toFixed(12)),
+          parseFloat((randomCenterBase[1] + (Math.random() - 0.5) * 0.1).toFixed(12))
+        ];
+
+        // Merge hierarchy: Explicit user value > Random value (if randomizeRender is true) > Global/Base default
+        const taskRenderConfig = {
+          iterations: userRenderConfig.iterations !== undefined 
+            ? userRenderConfig.iterations 
+            : (randomizeRender ? randomIterations : (baseDefaults.iterations ?? defaultIterations)),
+
+          resolution: {
+            width: userRenderConfig.resolution?.width !== undefined 
+              ? userRenderConfig.resolution.width 
+              : (baseDefaults.resolution?.width ?? defaultWidth),
+            height: userRenderConfig.resolution?.height !== undefined 
+              ? userRenderConfig.resolution.height 
+              : (baseDefaults.resolution?.height ?? defaultHeight)
+          },
+
+          zoom: userRenderConfig.zoom !== undefined 
+            ? userRenderConfig.zoom 
+            : (randomizeRender ? randomZoom : (baseDefaults.zoom ?? defaultZoom)),
+
+          center: userRenderConfig.center !== undefined 
+            ? userRenderConfig.center 
+            : (randomizeRender ? randomCenter : (baseDefaults.center ?? [defaultCenter_x, defaultCenter_y]))
+        };
+
+        // Finally, push the task with the resolved render configuration into the tasksToInsert array
         tasksToInsert.push({
           status: `pending`,
-          renderConfig,
+          renderConfig: taskRenderConfig,
           workerId: null,
           createdAt: now,
           updatedAt: now,
@@ -112,8 +158,8 @@ export class TaskController {
       // Insert the generated tasks into the database
       const result = await tasksCollection.insertMany(tasksToInsert);
 
-      // Log the successful insertion of tasks into the database and respond
-      console.log(`[TASK_CTRL] Successfully injected ${count} task(s).`);
+      // Log success and respond
+      console.log(`[TASK_CTRL] Successfully injected ${count} task(s) (randomized missing properties: ${randomizeRender}).`);
       res.status(201).json({
         status: `success`,
         message: `Successfully created ${count} task(s)`,

@@ -14,6 +14,10 @@ export const validateCreateTask = [
     .optional({ values: 'undefined' })
     .isInt({ min: 1, max: 1000 })
     .bail(),
+  body('randomizeRender', 'Please provide a valid boolean value for randomizeRender')
+    .optional({ values: 'undefined' })
+    .isBoolean()
+    .bail(),
   body('renderConfig', 'Please provide a valid renderConfig object')
     .optional({ values: 'undefined' })
     .isObject()
