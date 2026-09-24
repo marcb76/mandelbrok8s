@@ -7,6 +7,7 @@ import { MongoClient, Db, Collection, GridFSBucket } from 'mongodb';
 
 
 // Database connection and collection references
+export const globalConfigId = "global_config";
 const bucketName = 'fractals';
 let db: Db;
 let globalConfigCollection: Collection;
@@ -27,7 +28,7 @@ export async function connectDB(mongoUri: string, defaultGlobalConfig: any): Pro
   gridFSBucket = new GridFSBucket(db, { bucketName: bucketName });
 
   // If no global configuration exists, insert the default configuration
-  const existingConfig = await globalConfigCollection.findOne({ _id: `global_config` as any });
+  const existingConfig = await globalConfigCollection.findOne({ _id: globalConfigId as any });
   if (!existingConfig) {
     await globalConfigCollection.insertOne(defaultGlobalConfig);
     console.log('[DATABASE]   No existing global configuration found. Default global configuration inserted');

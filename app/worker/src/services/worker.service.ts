@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { execFile } from 'child_process';
-import { getDB } from '../config/database';
+import { getDB, globalConfigId } from '../config/database';
 
 
 
@@ -19,7 +19,7 @@ let globalConfig: any = null;
 export async function refreshGlobalConfig(): Promise<boolean> {
   try {
     const { globalConfigCollection } = getDB();
-    const doc = await globalConfigCollection.findOne({ _id: 'global_config' as any });
+    const doc = await globalConfigCollection.findOne({ _id: globalConfigId as any });
     if (doc) {
       globalConfig = doc;
       return true;

@@ -2,7 +2,7 @@
 
 // Import required modules
 import { Request, Response } from 'express';
-import { getDB } from '../config/database';
+import { getDB, globalConfigId } from '../config/database';
 import { ObjectId, GridFSBucket } from 'mongodb';
 
 
@@ -88,7 +88,7 @@ export class TaskController {
 
       // If renderConfig is not provided in request, fetch defaults from global_config
       if (!renderConfig) {
-        const globalConfig = await globalConfigCollection.findOne({ _id: `global_config` as any });
+        const globalConfig = await globalConfigCollection.findOne({ _id: globalConfigId as any });
         renderConfig = globalConfig ? globalConfig.fractalDefaults : defaultRenderConfig;
       }
 

@@ -2,7 +2,7 @@
 
 // Import required modules
 import { Request, Response } from 'express';
-import { getDB } from '../config/database';
+import { getDB, globalConfigId } from '../config/database';
 
 
 
@@ -14,7 +14,7 @@ export class GlobalConfigController {
     try {
       // Fetch the global configuration document from the database
       const { globalConfigCollection } = getDB();
-      const config = await globalConfigCollection.findOne({ _id: 'global_config' as any });
+      const config = await globalConfigCollection.findOne({ _id: globalConfigId as any });
       if (!config) {
         // Respond with a 404 error if the global configuration is not found
         res.status(404).json({
@@ -54,7 +54,7 @@ export class GlobalConfigController {
 
       // Update the global configuration document in the database
       const result = await globalConfigCollection.updateOne(
-        { _id: 'global_config' as any },
+        { _id: globalConfigId as any },
         { $set: updateData },
         { upsert: true }
       );

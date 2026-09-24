@@ -3,7 +3,7 @@
 // Import required modules
 import express from 'express';
 import dotenv from 'dotenv';
-import { connectDB, getDB } from './config/database';
+import { connectDB, getDB, globalConfigId } from './config/database';
 import globalConfigRoutes from './routes/globalConfig.routes';
 import healthRoutes from './routes/health.routes';
 import k8sRoutes from './routes/k8s.routes';
@@ -15,7 +15,7 @@ import taskRoutes from './routes/task.routes';
 
 // Define a default global configuration for the Mandelbrok8s
 const defaultGlobalConfig = {
-  _id: "global_config",
+  _id: globalConfigId,
   orchestrator: {
     port: 8080,
     taskTimeoutMs: 30000
@@ -118,7 +118,7 @@ async function startOrchestrator() {
 
     // Fetch the global configuration from the database
     console.log('[ORCHESTRATOR] Fetching global_config from database...');
-    const globalConfig = await getDB().globalConfigCollection.findOne({ _id: "global_config" as any });
+    const globalConfig = await getDB().globalConfigCollection.findOne({ _id: globalConfigId as any });
     console.log('[ORCHESTRATOR]   global_config loaded successfully. Orchestrator:    ', JSON.stringify(globalConfig?.orchestrator));
     console.log('[ORCHESTRATOR]                                      Worker:          ', JSON.stringify(globalConfig?.worker));
     console.log('[ORCHESTRATOR]                                      fractalDefaults: ', JSON.stringify(globalConfig?.fractalDefaults));

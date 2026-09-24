@@ -7,6 +7,7 @@ import { MongoClient, Db, Collection, GridFSBucket } from 'mongodb';
 
 
 // Database connection and collection references
+export const globalConfigId = "global_config";
 const bucketName = 'fractals';
 let db: Db;
 let globalConfigCollection: Collection;
