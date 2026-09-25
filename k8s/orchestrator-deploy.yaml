@@ -6,7 +6,7 @@ metadata:
   labels:
     app: orchestrator
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -23,7 +23,7 @@ spec:
       containers:
         - name: orchestrator
           image: docker.io/marcb76/mandelbrok8s-orchestrator:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
               name: http
@@ -46,7 +46,7 @@ spec:
             httpGet:
               path: /healthz
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 3
@@ -54,7 +54,7 @@ spec:
             httpGet:
               path: /readyz
               port: 8080
-            initialDelaySeconds: 5
+            initialDelaySeconds: 15
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 2

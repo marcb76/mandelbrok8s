@@ -10,7 +10,6 @@ set -e
 
 # Define your Docker Hub username or namespace here
 DOCKER_HUB_USER="marcb76"
-DOCKER_HUB_USER_PASSWORD="KrgaTYsz3YK5Sd)"
 
 
 
@@ -31,42 +30,47 @@ echo ""
 echo ""
 
 
-# Build and tag Orchestrator
-echo "[BUILD] Building Orchestrator image (mandelbrok8s-orchestrator:latest)..."
-docker build -t ${DOCKER_HUB_USER}/mandelbrok8s-orchestrator:latest -f Dockerfile.orchestrator ..
-echo ""
-
-
-# Build and tag Worker
-echo "[BUILD] Building Worker image (mandelbrok8s-worker:latest)..."
-docker build -t ${DOCKER_HUB_USER}/mandelbrok8s-worker:latest -f Dockerfile.worker ..
-echo ""
-echo ""
-echo ""
-echo ""
-
-
 # Login to Docker Hub securely
-echo "[LOGIN] Logging in to Docker Hub..."
+echo "[LOGIN       ] Logging in to Docker Hub..."
 # Two options: environment variable or interactive input
-# Option A: If you DOCKER_PASSWORD environment variable is defined, use it!
-if [ -n "$DOCKER_PASSWORD" ]; then
-    echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_HUB_USER}" --password-stdin
+# Option A: If you DOCKER_HUB_PASSWORD environment variable is defined, use it!
+if [ -n "$DOCKER_HUB_PASSWORD" ]; then
+    echo "${DOCKER_HUB_PASSWORD}" | docker login -u "${DOCKER_HUB_USER}" --password-stdin
 else
     # Option B: No environment variable is defined, Docker will prompt for the password interactively and securely in the terminal
     docker login -u "${DOCKER_HUB_USER}"
 fi
 echo ""
-
-
-# Push Orchestrator
-echo "[PUSH ] Pushing Orchestrator image to Docker Hub..."
-docker push ${DOCKER_HUB_USER}/mandelbrok8s-orchestrator:latest
 echo ""
 
-# Push Worker
-echo "[PUSH ] Pushing Worker image to Docker Hub..."
-docker push ${DOCKER_HUB_USER}/mandelbrok8s-worker:latest
+
+# Ensure a buildx builder instance is ready
+echo "[BUILDX      ] Ensuring buildx builder instance is ready..."
+docker buildx use default || docker buildx create --use
+echo ""
+echo ""
+
+
+# Build and tag Orchestrator
+echo "[BUILD & PUSH] Building & pushing Orchestrator for AMD64 & ARM64..."
+docker buildx build \
+    --platform linux/amd64,linux/arm64 \
+    -t ${DOCKER_HUB_USER}/mandelbrok8s-orchestrator:latest \
+    -f Dockerfile.orchestrator \
+    --push \
+    ..
+echo ""
+echo ""
+
+
+# Build and tag Worker
+echo "[BUILD & PUSH] Building & pushing Worker for AMD64 & ARM64..."
+docker buildx build \
+    --platform linux/amd64,linux/arm64 \
+    -t ${DOCKER_HUB_USER}/mandelbrok8s-worker:latest \
+    -f Dockerfile.worker \
+    --push \
+    ..
 echo ""
 echo ""
 echo ""
@@ -77,8 +81,7 @@ echo ""
 
 # Outro banner
 echo "===================================================="
-echo " All Docker images successfully built and pushed to Docker Hub!"
-echo " Finished all Docker image operations."
+echo " All multi-arch Docker images successfully built and pushed to Docker Hub!"
 echo " Have a nice day!"
 echo "===================================================="
 echo ""

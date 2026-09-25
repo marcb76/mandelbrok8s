@@ -9,10 +9,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - mandelbrok8s.example.com
+        - mandelbrok8s.mbonet.xyz
       secretName: tls-secrets
   rules:
-    - host: mandelbrok8s.example.com
+    - host: mandelbrok8s.mbonet.xyz
       http:
         paths:
           - path: /

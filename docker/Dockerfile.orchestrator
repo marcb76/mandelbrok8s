@@ -1,12 +1,12 @@
 # ==============================================================================
 # Dockerfile: Mandelbrok8s Orchestrator
-# Description: Node.js container for task distribution, state management,
+# Description: Node.js 24 container for task distribution, state management,
 #              and Kubernetes pod orchestration.
 # Author: Marc Bonet Bretto
 # ==============================================================================
 
 # Use official Node.js runtime as parent image
-FROM node:20-bookworm
+FROM node:24-alpine
 
 # Set working directory inside the container for the orchestrator application
 WORKDIR /app/orchestrator

@@ -6,7 +6,7 @@ metadata:
   labels:
     app: worker
 spec:
-  replicas: 1
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -23,7 +23,7 @@ spec:
       containers:
         - name: worker
           image: docker.io/marcb76/mandelbrok8s-worker:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
               name: probes
@@ -44,7 +44,7 @@ spec:
             httpGet:
               path: /healthz
               port: 8081
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 3
@@ -52,7 +52,7 @@ spec:
             httpGet:
               path: /readyz
               port: 8081
-            initialDelaySeconds: 5
+            initialDelaySeconds: 15
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 2

@@ -41,8 +41,9 @@ const defaultPythonBin = 'python3';
 const defaultPythonScriptPath = '../../renderer/mandelbrok8s.py';
 const MONGO_URI = process.env.MONGO_URI || defaultMongoUri;
 const PYTHON_BIN = process.env.PYTHON_BIN || defaultPythonBin;
-const PYTHON_SCRIPT_PATH__ = process.env.PYTHON_SCRIPT_PATH || defaultPythonScriptPath
-const PYTHON_SCRIPT_PATH = path.join(__dirname, PYTHON_SCRIPT_PATH__);
+// Handle absolute or relative paths gracefully for both Docker and local dev environments
+const rawPythonScriptPath = process.env.PYTHON_SCRIPT_PATH || defaultPythonScriptPath;
+const PYTHON_SCRIPT_PATH = path.isAbsolute(rawPythonScriptPath) ? rawPythonScriptPath : path.join(__dirname, rawPythonScriptPath);
 console.log('[MAIN    ]   Configuration loaded:');
 console.log(`[MAIN    ]     MONGO_URI:          ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
 console.log(`[MAIN    ]     PYTHON_BIN:         ${PYTHON_BIN}`);
