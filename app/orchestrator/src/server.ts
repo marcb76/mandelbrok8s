@@ -241,9 +241,11 @@ app.get('/', (req, res) => {
                 <li><a class="endpoint-link" href="/metrics" target="_blank">GET /metrics</a> — Expose operational metrics for the orchestration cluster.</li>
                 <li><a class="endpoint-link" href="/api/v1/global_config" target="_blank">GET /api/v1/global_config</a> — Retrieve global configuration document from MongoDB.</li>
                 <li><a class="endpoint-link" href="/api/v1/tasks" target="_blank">GET /api/v1/tasks</a> — Query the list of rendering tasks and their current state.</li>
+                <!--
                 <li><a class="endpoint-link" href="/api/v1/k8s" target="_blank">GET /api/v1/k8s</a> — Retrieve Kubernetes cluster status and integration overview.</li>
                 <li><a class="endpoint-link" href="/api/v1/k8s/pods" target="_blank">GET /api/v1/k8s/pods</a> — List managed worker pods in the Kubernetes cluster.</li>
                 <li><a class="endpoint-link" href="/api/v1/k8s/hpa" target="_blank">GET /api/v1/k8s/hpa</a> — Retrieve HPA metrics and scaling status.</li>
+                -->
             </ul>
         </div>
 

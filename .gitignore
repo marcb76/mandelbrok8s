@@ -51,5 +51,6 @@ Thumbs.db
 *.bak
 
 # Others
+still-to-do.md
 *.pdf
 /app/renderer/*.png
