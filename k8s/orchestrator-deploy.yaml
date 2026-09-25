@@ -23,7 +23,7 @@ spec:
       containers:
         - name: orchestrator
           image: docker.io/marcb76/mandelbrok8s-orchestrator:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http
