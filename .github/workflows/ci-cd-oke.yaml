@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Set up Docker Buildx for optimized builds
+      # 2. Set up Docker Buildx for optimized multi-arch builds
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -40,23 +40,25 @@ jobs:
           npm run build
           cd ../..
 
-      # 6. Build and push Orchestrator image
+      # 6. Build and push Multi-Arch Orchestrator image
       - name: Build and push Orchestrator image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/Dockerfile.orchestrator
+          platforms: linux/amd64,linux/arm64
           push: true
-          tags: marcb76/mandelbrok8s-orchestrator:latest
+          tags: docker.io/marcb76/mandelbrok8s-orchestrator:latest
 
-      # 7. Build and push Worker image
+      # 7. Build and push Multi-Arch Worker image
       - name: Build and push Worker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/Dockerfile.worker
+          platforms: linux/amd64,linux/arm64
           push: true
-          tags: marcb76/mandelbrok8s-worker:latest
+          tags: docker.io/marcb76/mandelbrok8s-worker:latest
 
       # 8. Install Oracle Cloud Infrastructure (OCI) CLI natively
       - name: Install OCI CLI

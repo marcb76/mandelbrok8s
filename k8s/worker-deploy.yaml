@@ -22,8 +22,8 @@ spec:
     spec:
       containers:
         - name: worker
-          image: marcb76/mandelbrok8s-worker:latest
-          imagePullPolicy: IfNotPresent
+          image: docker.io/marcb76/mandelbrok8s-worker:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8081
               name: probes
