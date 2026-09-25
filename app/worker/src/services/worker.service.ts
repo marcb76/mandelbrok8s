@@ -50,7 +50,7 @@ function runRenderer(task: any, pythonBin: string, scriptPath: string): Promise<
     const defaultZoom = 1.0;
     const defaultCenterX = -0.5;
     const defaultCenterY = 0.0;
-    const tempOutputPath = path.join(__dirname, `../../temp_${task._id}.png`);
+    const tempOutputPath = path.join(os.tmpdir(), `mandelbrok8s_${task._id}.png`);
 
     const renderConfig = task.renderConfig || {};
     const resolution = renderConfig.resolution || {};
@@ -119,15 +119,16 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
 
   try {
     // Attempt to claim the next pending task from the database
-    console.log('[CLAIMER ] Attempting to acquire next pending task...');
+    // console.log('[CLAIMER ] Attempting to acquire next pending task...');
     const claimTime = new Date();
+    const claimBy = process.env.POD_NAME || `${os.hostname()}-pid-${process.pid}`;
     task = await tasksCollection.findOneAndUpdate(
       { status: 'pending' },
       { 
         $set: { 
           status: 'processing', 
           claimedAt: claimTime,
-          claimedBy: `${os.hostname()}-pid-${process.pid}`,
+          claimedBy: claimBy,
           updatedAt: claimTime
         } 
       },
@@ -136,7 +137,7 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
 
     if (!task) {
       // No pending tasks are available, exit the function
-      console.log('[CLAIMER ]   No pending tasks found.');
+      // console.log('[CLAIMER ]   No pending tasks found.');
       return;
     }
     console.log(`[CLAIMER ]   Task acquired. ID: ${task._id}`);
@@ -163,19 +164,20 @@ export async function claimAndProcessTask(pythonBin: string, scriptPath: string)
 
     // Update the task with completion details, including render time and GridFS file reference
     console.log(`[CLAIMER ]   Updating task completion details for task ID: ${task._id}`);
-    const match = stdout.match(/render_time_sec=([\d.]+)/);
-    const renderTimeSec = match ? parseFloat(match[1]) : null;
+    const imageRenderTimeSec = (imageFinishedAt.getTime() - imageStartedAt.getTime()) / 1000;
+    const finalUrl = task.url.replace('_id', task._id.toString());
     await tasksCollection.updateOne(
       { _id: task._id },
       {
         $set: {
           status: 'completed',
+          url: finalUrl,
           imageFinishedAt: imageFinishedAt,
+          imageRenderTimeSec: imageRenderTimeSec,
           gridFSFileId: gridFsFileId,
           image: {
             $ref: 'fs.files',$id: gridFsFileId
           },
-          renderTimeSec: renderTimeSec,
           updatedAt: imageFinishedAt
         }
       }

@@ -286,7 +286,7 @@ app.get('/', (req, res) => {
                 const res = await fetch('/api/v1/tasks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ count: parseInt(count, 10) })
+                    body: JSON.stringify({ count: parseInt(count, 10), randomizeRender: true })
                 });
                 const data = await res.json();
                 output.textContent = JSON.stringify(data, null, 2);

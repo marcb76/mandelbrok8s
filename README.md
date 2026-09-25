@@ -135,6 +135,7 @@ Each fractal rendering request creates a stateful job document within the `tasks
 {
   "_id": "651a2f3e8f1b2c3d4e5f6a7b",
   "status": "completed",
+  "url": "https://mandelbrok8s.mbonet.xyz/api/v1/tasks/651a2f3e8f1b2c3d4e5f6a7b/image",
   "renderConfig": {
     "iterations": 1000,
     "resolution": {
@@ -148,11 +149,12 @@ Each fractal rendering request creates a stateful job document within the `tasks
   "claimedBy": "worker-deployment-7f89b9d6c4-x82kz",
   "imageStartedAt": "2026-09-18T12:00:03Z",
   "imageFinishedAt": "2026-09-18T12:00:15Z",
+  "imageRenderTimeSec": 15.7471,
+  "gridFSFileId": "6ab682b1c79d863887e305e3",
   "image": {
     "$ref": "fs.files",
     "$id": "651a2f4b8f1b2c3d4e5f6a7c"
   },
-  "retryCount": 0,
   "error": null,
   "createdAt": "2026-09-18T12:00:00Z",
   "updatedAt": "2026-09-18T12:00:15Z"
@@ -162,13 +164,18 @@ Each fractal rendering request creates a stateful job document within the `tasks
 #### Schema Field Breakdown:
 * **`_id`**: Unique MongoDB BSON ObjectId for the task.
 * **`status`**: Lifecycle state (`pending` | `processing` | `completed` | `failed`).
+* **`url`**: Downloadable link of the image.
 * **`renderConfig`**: Effective render parameters (iterations, resolution, zoom, center) inherited from `global_config` defaults or optional API overrides.
-* **`claimedAt` / `claimedBy`**: Timestamp and Kubernetes Pod identifier claiming the task atomically.
-* **`imageStartedAt` / `imageFinishedAt`**: Exact execution duration metrics for calculation and rendering.
+* **`claimedAt`**: Timestamp when Kubernetes Pod claimed the task atomically.
+* **`claimedBy`**: Kubernetes Pod identifier that claimed the task atomically.
+* **`imageStartedAt`**: Image rendering execution start time.
+* **`imageFinishedAt`**: Image rendering execution end time.
+* **`imageRenderTimeSec`**: Image rendering time in seconds.
+* **`gridFSFileId`**: Unique generated image identifier stored in **MongoDB GridFS** (`fs.files`).
 * **`image`**: Object pointer referring to the generated image stored in **MongoDB GridFS** (`fs.files`).
-* **`retryCount`**: Counter for handling retries in case a worker pod crashes mid-execution.
 * **`error`**: Exception stack trace or failure reason if the rendering fails.
-* **`createdAt` / `updatedAt`**: ISO timestamps for creation and status mutations.
+* **`createdAt`**: ISO timestamps for creation.
+* **`updatedAt`**: ISO timestamps for mutations.
 
 ---
 

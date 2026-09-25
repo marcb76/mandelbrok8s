@@ -82,6 +82,7 @@ export class TaskController {
       };
 
       // Extract parameters from the request body
+      const url = `${req.protocol}://${req.get('host')}/api/v1/tasks/_id/image`;
       const count = req.body.count || defaultCount;
       const randomizeRender = req.body.randomizeRender === true;
       const userRenderConfig = req.body.renderConfig || {};
@@ -144,14 +145,18 @@ export class TaskController {
         // Finally, push the task with the resolved render configuration into the tasksToInsert array
         tasksToInsert.push({
           status: `pending`,
+          url: url,
           renderConfig: taskRenderConfig,
-          workerId: null,
-          createdAt: now,
-          updatedAt: now,
-          startedAt: null,
-          completedAt: null,
+          claimedAt: null,
+          claimedBy: null,
+          imageStartedAt: null,
+          imageFinishedAt: null,
+          imageRenderTimeSec: null,
+          gridFSFileId: null,
+          image: null,
           error: null,
-          gridFSFileId: null
+          createdAt: now,
+          updatedAt: now
         });
       }
 
@@ -159,7 +164,7 @@ export class TaskController {
       const result = await tasksCollection.insertMany(tasksToInsert);
 
       // Log success and respond
-      console.log(`[TASK_CTRL] Successfully injected ${count} task(s) (randomized missing properties: ${randomizeRender}).`);
+      console.log(`[TASK_CTRL] Successfully injected ${count} task(s) (randomizeRender: ${randomizeRender}).`);
       res.status(201).json({
         status: `success`,
         message: `Successfully created ${count} task(s)`,

@@ -4,6 +4,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { connectDB, getDB } from './config/database';
 import healthRoutes from './routes/health.routes';
 import metricsRoutes from './routes/metrics.routes';
@@ -40,9 +41,25 @@ const defaultMongoUri = 'mongodb://localhost:27017/mandelbrok8s';
 const defaultPythonBin = 'python3';
 const defaultPythonScriptPath = '../../renderer/mandelbrok8s.py';
 const MONGO_URI = process.env.MONGO_URI || defaultMongoUri;
-const PYTHON_BIN = path.normalize(process.env.PYTHON_BIN || defaultPythonBin);
-const PYTHON_SCRIPT_PATH__ = process.env.PYTHON_SCRIPT_PATH || defaultPythonScriptPath
-const PYTHON_SCRIPT_PATH = path.join(__dirname, PYTHON_SCRIPT_PATH__);
+// Path resolution for PYTHON_BIN
+// If PYTHON_BIN includes path separators (/ or \), it is resolved as a local/absolute path.
+// If it is a simple command ('python' or 'python3'), it remains as is to be executed in the system PATH.
+const rawPythonBin = process.env.PYTHON_BIN || defaultPythonBin;
+const PYTHON_BIN = (rawPythonBin.includes('/') || rawPythonBin.includes('\\')) ? (path.isAbsolute(rawPythonBin) ? path.resolve(rawPythonBin) : path.resolve(__dirname, rawPythonBin)) : rawPythonBin;
+if (fs.existsSync(PYTHON_BIN))
+  console.log(`[MAIN    ]   Python binary found at: ${PYTHON_BIN}`);
+else
+  console.warn(`[WARN    ]  ATTENTION: Python binary not found at: ${PYTHON_BIN}`);
+
+// Path resolution for PYTHON_SCRIPT_PATH
+// If PYTHON_SCRIPT_PATH is already an absolute path (as it is the the docker: /app/renderer/mandelbrok8s.py), it is used as is.
+// If it is relative (e.g., local dev: ../../renderer/mandelbrok8s.py), it is resolved from __dirname.
+const rawScriptPath = process.env.PYTHON_SCRIPT_PATH || defaultPythonScriptPath;
+const PYTHON_SCRIPT_PATH = path.isAbsolute(rawScriptPath) ? path.resolve(rawScriptPath) : path.resolve(__dirname, rawScriptPath);
+if (fs.existsSync(PYTHON_SCRIPT_PATH))
+  console.log(`[MAIN    ]   Python script found at: ${PYTHON_SCRIPT_PATH}`);
+else
+  console.warn(`[WARN    ]  ATTENTION: Python script not found at: ${PYTHON_SCRIPT_PATH}`);
 console.log('[MAIN    ]   Configuration loaded:');
 console.log(`[MAIN    ]     MONGO_URI:          ${MONGO_URI ? '[PRESENT]' : '[MISSING]'}`);
 console.log(`[MAIN    ]     PYTHON_BIN:         ${PYTHON_BIN}`);
@@ -180,6 +197,7 @@ async function startWorker() {
 
     // Start the task processing loop based on the configured polling interval
     console.log(`[WORKER  ] Starting task processing loop (polling every ${globalConfig?.worker?.pollIntervalMs} ms)...`);
+    console.log('[WORKER  ] Attempting to acquire pending tasks...');
     scheduleNextPoll();
   } catch (err) {
     // Handle any errors that occur during worker startup
