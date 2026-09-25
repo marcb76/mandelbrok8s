@@ -65,21 +65,42 @@ The hybrid selection of **Node.js (Orchestrator/Worker Manager)** and **Python +
 
 **Mandelbrok8s** decouples static runtime credentials from dynamic operational parameters. Static environment parameters are loaded at startup, while operational behavior (worker polling rates, timeouts, fractal default quality, and Kubernetes HPA triggers) is managed dynamically via MongoDB Atlas without requiring pod restarts.
 
-### 1. Static Configuration Files
+### 1. Environment Configuration
 
-* **Orchestrator (`orchestrator-config.json`):**
-  ```json
-  {
-    "port": 3000,
-    "dbConnectionString": "mongodb+srv://<user>:<password>@cluster.mongodb.net/mandelbrok8s"
-  }
-  ```
-* **Worker (`worker-config.json`):**
-  ```json
-  {
-    "dbConnectionString": "mongodb+srv://<user>:<password>@cluster.mongodb.net/mandelbrok8s"
-  }
-  ```
+The application is configured entirely via environment variables (`.env` for local execution, or injected dynamically in production).
+
+> **Security & Secrets Management Note:** Sensitive configuration values (such as `MONGO_URI`) are never committed to version control. In production and CI/CD pipelines, local `.env` values are overridden dynamically using **GitHub Actions Secrets** and injected into runtime containers via **Kubernetes Secrets** (`secretKeyRef` or `envFrom`).
+
+#### Orchestrator Environment Variables (`.env`)
+```env
+# MongoDB Connection String
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/mandelbrok8s
+
+# Kubernetes HPA Name for Auto-scaling metrics
+WORKER_HPA_NAME=worker-hpa
+```
+
+#### Worker Environment Variables (`.env`)
+```env
+# MongoDB Connection String
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/mandelbrok8s
+
+# Python Interpreter Executable Path or Command
+PYTHON_BIN=python3
+
+# Renderer Script Path (Relative for local dev, absolute inside Docker container)
+PYTHON_SCRIPT_PATH=../../renderer/mandelbrok8s.py
+
+# Injected automatically in Kubernetes via Downward API
+POD_NAME=worker-deployment-7f89b9d6c4-x82kz
+```
+
+#### Configuration Breakdown:
+* **`MONGO_URI`**: MongoDB connection string required by both services to coordinate job scheduling and GridFS image storage.
+* **`WORKER_HPA_NAME`**: Identifies the Horizontal Pod Autoscaler resource in the Kubernetes cluster.
+* **`PYTHON_BIN`**: Path or system binary command used by Node.js `execFile` to invoke the Python renderer.
+* **`PYTHON_SCRIPT_PATH`**: File system path pointing to the Numba JIT calculation script (`mandelbrok8s.py`).
+* **`POD_NAME`**: Unique pod identifier injected by Kubernetes for atomic task claiming in multi-worker deployments.
 
 ### 2. Dynamic Operational Configuration Collection (`global_config`)
 
