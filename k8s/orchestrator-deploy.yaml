@@ -20,6 +20,7 @@ spec:
       labels:
         app: orchestrator
     spec:
+      serviceAccountName: orchestrator-sa
       containers:
         - name: orchestrator
           image: docker.io/marcb76/mandelbrok8s-orchestrator:latest
