@@ -308,8 +308,9 @@ kubectl apply -f k8s/secrets-tls.yaml
 ```
 
 ### 3. Build and Deploy Base Infrastructure
-Deploy Worker, HPA manifests and Orchestrator (pod, service & ingress):
+Deploy the Orchestrator RBAC resources first so its dedicated ServiceAccount and read-only Kubernetes permissions exist before the Deployment starts. Then deploy the Worker, HPA, and Orchestrator (pod, service & ingress):
 ```bash
+kubectl apply -f k8s/orchestrator-rbac.yaml
 kubectl apply -f k8s/worker-deploy.yaml
 kubectl apply -f k8s/worker-hpa.yaml
 kubectl apply -f k8s/orchestrator-deploy.yaml
@@ -380,16 +381,17 @@ mandelbrok8s/
 │   └── renderer/                  # Python CLI script with Numba JIT for fractal computation
 ├── docker/
 │   ├── build.sh
-│   ├── Dockerfile.orchestrator
+│   ├── Dockerfile.orchestrator    # Multi-runtime image (Node.js + Python/Numba)
 │   └── Dockerfile.worker          # Multi-runtime image (Node.js + Python/Numba)
 ├── k8s/
 │   ├── namespace.yaml
 │   ├── secrets-mongo.yaml         # MongoDB Atlas connection credentials
 │   ├── secrets-tls.yaml           # TLS: chain & key
-│   ├── orchestrator-deploy.yaml
-│   ├── orchestrator-service.yaml
-│   ├── orchestrator-ingress.yaml
-│   ├── worker-deploy.yaml
-│   └── worker-hpa.yaml            # Horizontal Pod Autoscaler configuration
+│   ├── orchestrator-rbac.yaml     # Orchestrator ServiceAccount and least-privilege Kubernetes read access
+│   ├── orchestrator-deploy.yaml   # Orchestrator pod deployment
+│   ├── orchestrator-service.yaml  # Orchestrator service
+│   ├── orchestrator-ingress.yaml  # Orchestrator ingress
+│   ├── worker-deploy.yaml         # Worker pod deployment
+│   └── worker-hpa.yaml            # Worker horizontal pod autoscaler configuration
 └── README.md
 ```

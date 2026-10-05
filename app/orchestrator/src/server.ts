@@ -241,11 +241,9 @@ app.get('/', (req, res) => {
                 <li><a class="endpoint-link" href="/metrics" target="_blank">GET /metrics</a> — Expose operational metrics for the orchestration cluster.</li>
                 <li><a class="endpoint-link" href="/api/v1/global_config" target="_blank">GET /api/v1/global_config</a> — Retrieve global configuration document from MongoDB.</li>
                 <li><a class="endpoint-link" href="/api/v1/tasks" target="_blank">GET /api/v1/tasks</a> — Query the list of rendering tasks and their current state.</li>
-                <!--
                 <li><a class="endpoint-link" href="/api/v1/k8s" target="_blank">GET /api/v1/k8s</a> — Retrieve Kubernetes cluster status and integration overview.</li>
                 <li><a class="endpoint-link" href="/api/v1/k8s/pods" target="_blank">GET /api/v1/k8s/pods</a> — List managed worker pods in the Kubernetes cluster.</li>
                 <li><a class="endpoint-link" href="/api/v1/k8s/hpa" target="_blank">GET /api/v1/k8s/hpa</a> — Retrieve HPA metrics and scaling status.</li>
-                -->
             </ul>
         </div>
 
@@ -253,12 +251,12 @@ app.get('/', (req, res) => {
             <h3>Parameterized & Administrative Endpoints</h3>
             <ul>
                 <li><strong>PATCH /api/v1/global_config</strong> — Update global system configuration parameters.</li>
+                <li><strong>POST /api/v1/tasks</strong> — Create and distribute a batch of new fractal rendering tasks asynchronously.</li>
                 <li><strong>GET /api/v1/tasks/{:id}</strong> — Query state and details of a specific rendering task by ID.</li>
                 <li><strong>GET /api/v1/tasks/{:id}/image</strong> — Download or view the rendered fractal image from GridFS for a given task ID.</li>
                 <li><strong>DELETE /api/v1/tasks/{:id}</strong> — Delete a specific rendering task by ID.</li>
                 <li><strong>DELETE /api/v1/tasks</strong> — Delete all rendering tasks in the system.</li>
                 <li><strong>GET /api/v1/k8s/pods/{:name}</strong> — Retrieve telemetry and status for a specific pod name.</li>
-                <li><strong>POST /api/v1/tasks</strong> — Create and distribute a batch of new fractal rendering tasks asynchronously.</li>
             </ul>
         </div>
 
