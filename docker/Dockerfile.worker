@@ -31,15 +31,15 @@ RUN npm ci
 COPY app/worker/dist/ ./dist/
 
 # Copy the Python renderer script and its requirements file
-COPY app/renderer/mandelbrok8s.py /app/renderer/mandelbrok8s.py
-COPY app/renderer/mandelbrok8s-requirements /app/renderer/mandelbrok8s-requirements
+COPY app/renderer/mandelbrok8s-renderer.py /app/renderer/mandelbrok8s-renderer.py
+COPY app/renderer/mandelbrok8s-renderer-requirements /app/renderer/mandelbrok8s-renderer-requirements
 
 # Install Python dependencies cleanly using precompiled wheels
-RUN pip install --no-cache-dir -r /app/renderer/mandelbrok8s-requirements
+RUN pip install --no-cache-dir -r /app/renderer/mandelbrok8s-renderer-requirements
 
 # Set default runtime environment variables pointing to internal container paths
 ENV PYTHON_BIN=python
-ENV PYTHON_SCRIPT_PATH=/app/renderer/mandelbrok8s.py
+ENV PYTHON_SCRIPT_PATH=/app/renderer/mandelbrok8s-renderer.py
 
 # Expose default application port (runtime dynamically respects configuration from DB)
 EXPOSE 8081
