@@ -39,7 +39,7 @@ console.log('[MAIN    ] Loading environment variables and configuration...');
 dotenv.config();
 const defaultMongoUri = 'mongodb://localhost:27017/mandelbrok8s';
 const defaultPythonBin = 'python3';
-const defaultPythonScriptPath = '../../renderer/mandelbrok8s.py';
+const defaultPythonScriptPath = '../../renderer/mandelbrok8s-renderer.py';
 const MONGO_URI = process.env.MONGO_URI || defaultMongoUri;
 // Path resolution for PYTHON_BIN
 // If PYTHON_BIN includes path separators (/ or \), it is resolved as a local/absolute path.
@@ -52,8 +52,8 @@ else
   console.warn(`[WARN    ]  ATTENTION: Python binary not found at: ${PYTHON_BIN}`);
 
 // Path resolution for PYTHON_SCRIPT_PATH
-// If PYTHON_SCRIPT_PATH is already an absolute path (as it is the the docker: /app/renderer/mandelbrok8s.py), it is used as is.
-// If it is relative (e.g., local dev: ../../renderer/mandelbrok8s.py), it is resolved from __dirname.
+// If PYTHON_SCRIPT_PATH is already an absolute path (as it is in Docker: /app/renderer/mandelbrok8s-renderer.py), it is used as is.
+// If it is relative (e.g., local dev: ../../renderer/mandelbrok8s-renderer.py), it is resolved from __dirname.
 const rawScriptPath = process.env.PYTHON_SCRIPT_PATH || defaultPythonScriptPath;
 const PYTHON_SCRIPT_PATH = path.isAbsolute(rawScriptPath) ? path.resolve(rawScriptPath) : path.resolve(__dirname, rawScriptPath);
 if (fs.existsSync(PYTHON_SCRIPT_PATH))

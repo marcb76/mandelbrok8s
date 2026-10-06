@@ -66,13 +66,13 @@ def main():
     usage_epilog = """
 Examples of usage:
   # Default 1080p render
-  python3 mandelbrok8s.py --width 1920 --height 1080 --iterations 1000 --output fractal.png
+  python3 mandelbrok8s-renderer.py --width 1920 --height 1080 --iterations 1000 --output fractal.png
 
   # Deep zoom into Seahorse Valley
-  python3 mandelbrok8s.py --width 3840 --height 2160 --iterations 2000 --center-x -0.743643887 --center-y 0.131825904 --zoom 150.0 --output seahorse.png
+  python3 mandelbrok8s-renderer.py --width 3840 --height 2160 --iterations 2000 --center-x -0.743643887 --center-y 0.131825904 --zoom 150.0 --output seahorse.png
 
   # Low-res fast preview
-  python3 mandelbrok8s.py --width 640 --height 360 --iterations 250 --output preview.png
+  python3 mandelbrok8s-renderer.py --width 640 --height 360 --iterations 250 --output preview.png
 """
 
     parser = argparse.ArgumentParser(

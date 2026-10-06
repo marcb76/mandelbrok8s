@@ -89,7 +89,7 @@ MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/mandelbrok8s
 PYTHON_BIN=python3
 
 # Renderer Script Path (Relative for local dev, absolute inside Docker container)
-PYTHON_SCRIPT_PATH=../../renderer/mandelbrok8s.py
+PYTHON_SCRIPT_PATH=../../renderer/mandelbrok8s-renderer.py
 
 # Injected automatically in Kubernetes via Downward API
 POD_NAME=worker-deployment-7f89b9d6c4-x82kz
@@ -99,7 +99,7 @@ POD_NAME=worker-deployment-7f89b9d6c4-x82kz
 * **`MONGO_URI`**: MongoDB connection string required by both services to coordinate job scheduling and GridFS image storage.
 * **`WORKER_HPA_NAME`**: Identifies the Horizontal Pod Autoscaler resource in the Kubernetes cluster.
 * **`PYTHON_BIN`**: Path or system binary command used by Node.js `execFile` to invoke the Python renderer.
-* **`PYTHON_SCRIPT_PATH`**: File system path pointing to the Numba JIT calculation script (`mandelbrok8s.py`).
+* **`PYTHON_SCRIPT_PATH`**: File system path pointing to the Numba JIT calculation script (`mandelbrok8s-renderer.py`).
 * **`POD_NAME`**: Unique pod identifier injected by Kubernetes for atomic task claiming in multi-worker deployments.
 
 ### 2. Dynamic Operational Configuration Collection (`global_config`)
