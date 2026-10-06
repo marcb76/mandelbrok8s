@@ -201,8 +201,22 @@ jobs:
                             name: mongo-secrets
                             key: MONGO_URI
           YAML
+          collect_diagnostics() {
+            echo "Mongo connectivity Job status:"
+            kubectl get job "$job_name" -n "$namespace" -o wide || true
+            echo "Mongo connectivity pod status:"
+            kubectl get pods -n "$namespace" -l "job-name=$job_name" -o wide || true
+            for pod in $(kubectl get pods -n "$namespace" -l "job-name=$job_name" -o name 2>/dev/null); do
+              echo "Describe $pod:"
+              kubectl describe "$pod" -n "$namespace" || true
+              echo "Logs for $pod:"
+              kubectl logs "$pod" -n "$namespace" --all-containers=true --tail=100 || true
+            done
+            echo "Recent namespace events:"
+            kubectl get events -n "$namespace" --sort-by=.metadata.creationTimestamp | tail -n 30 || true
+          }
           if ! kubectl wait --for=condition=complete "job/$job_name" -n "$namespace" --timeout=100s; then
-            kubectl logs "job/$job_name" -n "$namespace" --all-containers=true || true
+            collect_diagnostics
             echo "::error::MongoDB connectivity preflight failed or timed out."
             exit 1
           fi
