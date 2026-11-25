@@ -1,0 +1,265 @@
+name: CI/CD to Azure AKS (mandelbrok8s)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  validate-k8s-manifests:
+    name: Validate Kubernetes manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install manifest test dependencies
+        run: python -m pip install --disable-pip-version-check -r k8s/tests/tests-mandelbrok8s-k8s-requirements
+
+      - name: Run Kubernetes manifest tests
+        run: python -m unittest discover -s k8s/tests -p "test_*.py" -v
+
+  preflight:
+    name: Pre-deployment connectivity checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate-k8s-manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify required GitHub secrets are configured
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          for secret_name in DOCKER_USERNAME DOCKER_PASSWORD AZURE_CREDENTIALS; do
+            if [[ -z "$(printenv "$secret_name")" ]]; then
+              echo "::error::Required GitHub secret $secret_name is missing."
+              exit 1
+            fi
+          done
+
+      - name: Verify Docker Hub authentication
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure kubeconfig and verify cluster connectivity
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          export KUBECONFIG="$HOME/.kube/config"
+          az aks get-credentials \
+            --resource-group rg-discernic \
+            --name aks-discernic \
+            --file "$KUBECONFIG" \
+            --overwrite-existing
+          echo "KUBECONFIG=$KUBECONFIG" >> "$GITHUB_ENV"
+          kubectl cluster-info
+
+      - name: Verify namespace and preflight permissions
+        run: |
+          set -euo pipefail
+          namespace="mandelbrok8s"
+          kubectl get namespace "$namespace" >/dev/null
+          for permission in "get secrets" "create jobs.batch" "get jobs.batch" "delete jobs.batch" "get pods" "get pods/log"; do
+            read -r verb resource <<< "$permission"
+            if ! kubectl auth can-i --quiet "$verb" "$resource" -n "$namespace"; then
+              echo "::error::Kubernetes credentials cannot $verb $resource in namespace $namespace."
+              exit 1
+            fi
+          done
+
+          for resource in deployments.apps services ingresses.networking.k8s.io horizontalpodautoscalers.autoscaling serviceaccounts roles.rbac.authorization.k8s.io rolebindings.rbac.authorization.k8s.io; do
+            for verb in create patch; do
+              if ! kubectl auth can-i --quiet "$verb" "$resource" -n "$namespace"; then
+                echo "::error::Kubernetes credentials cannot $verb $resource in namespace $namespace."
+                exit 1
+              fi
+            done
+          done
+
+          for resource in clusterroles.rbac.authorization.k8s.io clusterrolebindings.rbac.authorization.k8s.io; do
+            for verb in create patch; do
+              if ! kubectl auth can-i --quiet "$verb" "$resource"; then
+                echo "::error::Kubernetes credentials cannot $verb $resource."
+                exit 1
+              fi
+            done
+          done
+
+          if ! kubectl auth can-i --quiet patch namespaces; then
+            echo "::error::Kubernetes credentials cannot patch namespaces."
+            exit 1
+          fi
+
+      - name: Verify required Kubernetes Secrets
+        run: |
+          set -euo pipefail
+          namespace="mandelbrok8s"
+          if ! kubectl get secret mongo-secrets -n "$namespace" -o json \
+            | jq -e '.type == "Opaque" and (.data.MONGO_URI | type == "string" and length > 0)' >/dev/null; then
+            echo "::error::mongo-secrets is missing or has no non-empty MONGO_URI key."
+            exit 1
+          fi
+          if ! kubectl get secret tls-secrets -n "$namespace" -o json \
+            | jq -e '.type == "kubernetes.io/tls" and (.data["tls.crt"] | type == "string" and length > 0) and (.data["tls.key"] | type == "string" and length > 0)' >/dev/null; then
+            echo "::error::tls-secrets is missing or has no non-empty tls.crt and tls.key keys."
+            exit 1
+          fi
+
+      - name: Verify MongoDB connectivity from Kubernetes
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          namespace="mandelbrok8s"
+          job_name="mongo-connectivity-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          cleanup() {
+            kubectl delete job "$job_name" -n "$namespace" --ignore-not-found=true --wait=false >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          kubectl apply -f - <<YAML
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: $job_name
+            namespace: $namespace
+            labels:
+              app.kubernetes.io/name: mongo-connectivity-preflight
+          spec:
+            backoffLimit: 0
+            activeDeadlineSeconds: 90
+            ttlSecondsAfterFinished: 60
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: mongo-ping
+                    image: docker.io/library/mongo:8.0
+                    imagePullPolicy: IfNotPresent
+                    command: ["/bin/sh", "-ec"]
+                    args:
+                      - |
+                        if mongosh "\$MONGO_URI" --quiet --eval 'if (db.runCommand({ ping: 1 }).ok !== 1) quit(1)' >/dev/null 2>&1; then
+                          echo "MongoDB connectivity check succeeded."
+                        else
+                          echo "MongoDB connectivity check failed; details suppressed." >&2
+                          exit 1
+                        fi
+                    env:
+                      - name: MONGO_URI
+                        valueFrom:
+                          secretKeyRef:
+                            name: mongo-secrets
+                            key: MONGO_URI
+          YAML
+          collect_diagnostics() {
+            echo "Mongo connectivity Job status:"
+            kubectl get job "$job_name" -n "$namespace" -o wide || true
+            echo "Mongo connectivity pod status:"
+            kubectl get pods -n "$namespace" -l "job-name=$job_name" -o wide || true
+            for pod in $(kubectl get pods -n "$namespace" -l "job-name=$job_name" -o name 2>/dev/null); do
+              echo "Describe $pod:"
+              kubectl describe "$pod" -n "$namespace" || true
+              echo "Logs for $pod:"
+              kubectl logs "$pod" -n "$namespace" --all-containers=true --tail=100 || true
+            done
+            echo "Recent namespace events:"
+            kubectl get events -n "$namespace" --sort-by=.metadata.creationTimestamp | tail -n 30 || true
+          }
+          if ! kubectl wait --for=condition=complete "job/$job_name" -n "$namespace" --timeout=100s; then
+            collect_diagnostics
+            echo "::error::MongoDB connectivity preflight failed or timed out."
+            exit 1
+          fi
+          kubectl logs "job/$job_name" -n "$namespace" --all-containers=true
+
+  build-and-deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [validate-k8s-manifests, preflight]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Orchestrator
+        run: |
+          cd app/orchestrator
+          npm ci
+          npm run build
+          cd ../..
+
+      - name: Build Worker
+        run: |
+          cd app/worker
+          npm ci
+          npm run build
+          cd ../..
+
+      - name: Build and push Multi-Arch Orchestrator image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.orchestrator
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: docker.io/marcb76/mandelbrok8s-orchestrator:latest
+
+      - name: Build and push Multi-Arch Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.worker
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: docker.io/marcb76/mandelbrok8s-worker:latest
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Kubeconfig for AKS
+        run: |
+          mkdir -p "$HOME/.kube"
+          export KUBECONFIG="$HOME/.kube/config"
+          az aks get-credentials \
+            --resource-group rg-discernic \
+            --name aks-discernic \
+            --file "$KUBECONFIG" \
+            --overwrite-existing
+          echo "KUBECONFIG=$KUBECONFIG" >> "$GITHUB_ENV"
+          kubectl cluster-info
+
+      - name: Deploy Manifests to AKS
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/
+          kubectl get all -n mandelbrok8s
