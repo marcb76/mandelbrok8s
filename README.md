@@ -111,7 +111,7 @@ The Orchestrator maintains and updates a single configuration document (`_id: "g
   "_id": "global_config",
   "orchestrator": {
     "port": 8080,
-    "taskTimeoutMs": 30000,
+    "taskTimeoutMs": 30000
   },
   "worker": {
     "port": 8080,
@@ -225,15 +225,18 @@ To ensure code updates or security patches do not interrupt task processing or A
 Credential security (such as the MongoDB Atlas connection URI and TLS certificates) is managed across two strictly separated layers:
 
 1. **GitHub Secrets (CI/CD):** 
-   * Store credentials required for authentication with the container registry and Oracle Cloud Infrastructure (OCI). The required secrets are:
+   * Store credentials required for authentication with the container registry and target cloud provider (**Azure / AKS** or **Oracle Cloud Infrastructure / OCI**):
      * `DOCKER_USERNAME`: Your Docker Hub username.
      * `DOCKER_PASSWORD`: Your Docker Hub password or access token.
-     * `OCI_USER_OCID`: The OCID of your OCI user.
-     * `OCI_TENANCY_OCID`: The OCID of your tenancy.
-     * `OCI_REGION`: The target OCI region (e.g., `us-ashburn-1`).
-     * `OCI_FINGERPRINT`: The fingerprint of your OCI API signing key.
-     * `OCI_PRIVATE_KEY`: The contents of your OCI private API key (`.pem`).
-     * `OCI_CLUSTER_OCID`: The OCID of your OKE cluster (`mandelbrok8s`).
+     * **Azure AKS Pipeline (`.github/workflows/ci-cd-aks.yaml`):**
+       * `AZURE_CREDENTIALS`: Azure authentication
+     * **OCI OKE Pipeline (`.github/workflows/ci-cd-oke.yaml`):**
+       * `OCI_USER_OCID`: The OCID of your OCI user.
+       * `OCI_TENANCY_OCID`: The OCID of your tenancy.
+       * `OCI_REGION`: The target OCI region (e.g., `us-ashburn-1`).
+       * `OCI_FINGERPRINT`: The fingerprint of your OCI API signing key.
+       * `OCI_PRIVATE_KEY`: The contents of your OCI private API key (`.pem`).
+       * `OCI_CLUSTER_OCID`: The OCID of your OKE cluster (`mandelbrok8s`).
 
 2. **Kubernetes Secrets:**
    * Credentials are never exposed in plain text within repositories. Actual secret resources must be generated locally from their respective templates (e.g., creating `secrets-mongo.yaml` and `secrets-tls.yaml` from `secrets-mongo.yaml.template` and `secrets-tls.yaml.template`) before being applied to the cluster.
@@ -242,7 +245,15 @@ Credential security (such as the MongoDB Atlas connection URI and TLS certificat
 
 ## 🤖 CI/CD with GitHub Actions
 
-The automated pipeline defined in `.github/workflows/ci-cd-oke.yaml` handles the full deployment lifecycle:
+The project includes automated GitHub Actions pipelines for both **Azure AKS** (`.github/workflows/ci-cd-aks.yaml`) and **OCI OKE** (`.github/workflows/ci-cd-oke.yaml`):
+
+### Azure AKS Pipeline (`.github/workflows/ci-cd-aks.yaml`)
+1. **Manifest Validation & Connectivity Checks:** Validates Kubernetes manifests and runs pre-deployment MongoDB connectivity checks before applying changes.
+2. **Build & Push:** Compiles multi-architecture container images (`Dockerfile.orchestrator` and `Dockerfile.worker`) using Docker Buildx and pushes them to Docker Hub.
+3. **Azure & AKS Configuration:** Authenticates with Azure and retrieves the `kubeconfig` for the AKS cluster (`aks-discernic`).
+4. **Cluster Apply:** Applies all Kubernetes manifests declaratively (`kubectl apply -f k8s/`) to deploy and update the namespace, deployments, services, HPA, and ingress, with manual trigger support (`workflow_dispatch`).
+
+### OCI OKE Pipeline (`.github/workflows/ci-cd-oke.yaml`)
 1. **Checkout & Setup:** Clones the repository, sets up Docker Buildx, and authenticates securely with Docker Hub.
 2. **Build & Push:** Compiles the multi-runtime images (`Dockerfile.orchestrator` and `Dockerfile.worker`) and pushes them to Docker Hub tagged as `latest`.
 3. **OCI & Kubernetes Configuration:** Installs the OCI CLI, dynamically configures the OCI credentials and private key inside the runner, and retrieves the cluster access configuration (`kubeconfig`) for the OKE cluster.
@@ -250,14 +261,14 @@ The automated pipeline defined in `.github/workflows/ci-cd-oke.yaml` handles the
 
 ---
 
-## 🛠️ Deployment Guide (Oracle Cloud Infrastructure OKE + MongoDB Atlas)
+## 🛠️ Deployment Guide (OCI/Azure AKS + MongoDB Atlas)
 
 > 💡 **Cloud-Agnostic Architecture Note:**  
-> While this guide demonstrates deployment on **Oracle Cloud Infrastructure (OKE)** for cost-efficiency and simplicity, all manifests in `k8s/` are **100% standard and idempotent**. The architecture is entirely **cloud-agnostic** and can be deployed seamlessly to AWS EKS, Google Cloud GKE, Azure AKS, or on-premises Kubernetes clusters without modifying any core manifest files.
+> All manifests in `k8s/` are **100% standard and idempotent**. The architecture is entirely **cloud-agnostic** and has been deployed and validated end-to-end on both **Azure Kubernetes Service (AKS)** (`aks-discernic`) and **Oracle Cloud Infrastructure (OKE)** without modifying core application manifests.
 
 ### Prerequisites
-* A **MongoDB Atlas** account with a deployed database and its corresponding Connection String.
-* A configured and accessible Kubernetes cluster in **Oracle Cloud Infrastructure (OKE)** via `kubectl`.
+* A configured and accessible **Azure AKS** cluster (`aks-discernic`) via `kubectl`.
+* A **MongoDB Atlas** cluster with the AKS outbound public IP address allowed in the Atlas Network Access List (`20.237.101.181/32`).
 * Local tools installed: `git`, `docker`, `kubectl`.
 
 ### 1. Clone the Repository
@@ -267,7 +278,7 @@ cd mandelbrok8s
 ```
 
 ### 2. Configure Kubernetes Secrets
-Create the secrets file in your local environment (ensure it is not committed to Git):
+Create `k8s/secrets-mongo.yaml` and `k8s/secrets-tls.yaml` locally (ensure neither file is committed to Git):
 ```yaml
 # k8s/secrets-mongo.yaml
 apiVersion: v1
@@ -307,8 +318,50 @@ kubectl apply -f k8s/secrets-mongo.yaml
 kubectl apply -f k8s/secrets-tls.yaml
 ```
 
-### 3. Build and Deploy Base Infrastructure
+### 3. Deploy Base Infrastructure
 Deploy the Orchestrator RBAC resources first so its dedicated ServiceAccount and read-only Kubernetes permissions exist before the Deployment starts. Then deploy the Worker, HPA, and Orchestrator (pod, service & ingress):
+```bash
+kubectl apply -f k8s/orchestrator-rbac.yaml
+kubectl apply -f k8s/worker-deploy.yaml
+kubectl apply -f k8s/worker-hpa.yaml
+kubectl apply -f k8s/orchestrator-deploy.yaml
+kubectl apply -f k8s/orchestrator-service.yaml
+kubectl apply -f k8s/orchestrator-ingress.yaml
+```
+
+### 4. Verify Deployment Status
+Check that pods are running properly and the HPA is active:
+```bash
+kubectl get pods -n mandelbrok8s
+kubectl get hpa -n mandelbrok8s
+```
+Once DNS and Ingress are active, verify the application and REST API endpoints over HTTPS (`https://mandelbrok8s.mbonet.xyz`).
+
+---
+
+## 🛠️ Deployment Guide (Oracle Cloud Infrastructure OKE + MongoDB Atlas)
+
+### Prerequisites
+* A **MongoDB Atlas** account with a deployed database and its corresponding Connection String.
+* A configured and accessible Kubernetes cluster in **Oracle Cloud Infrastructure (OKE)** via `kubectl`.
+* Local tools installed: `git`, `docker`, `kubectl`.
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/marcb76/mandelbrok8s.git
+cd mandelbrok8s
+```
+
+### 2. Configure Kubernetes Secrets
+Create the local `k8s/secrets-mongo.yaml` and `k8s/secrets-tls.yaml` files as shown in the section above, then apply namespace and secrets:
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/secrets-mongo.yaml
+kubectl apply -f k8s/secrets-tls.yaml
+```
+
+### 3. Build and Deploy Base Infrastructure
+Deploy the Orchestrator RBAC resources first, followed by the Worker, HPA, and Orchestrator manifests:
 ```bash
 kubectl apply -f k8s/orchestrator-rbac.yaml
 kubectl apply -f k8s/worker-deploy.yaml
@@ -373,7 +426,8 @@ While Worker pods operate as asynchronous background consumers, each replica exe
 mandelbrok8s/
 ├── .github/
 │   └── workflows/
-│       └── ci-cd-oke.yaml         # GitHub Actions pipeline (CI/CD)
+│       ├── ci-cd-aks.yaml         # GitHub Actions pipeline for Azure AKS (CI/CD)
+│       └── ci-cd-oke.yaml         # GitHub Actions pipeline for OCI OKE (CI/CD)
 ├── .gitignore
 ├── app/
 │   ├── orchestrator/              # Node.js API to inject tasks
